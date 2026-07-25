@@ -254,6 +254,49 @@ Check out this interactive walkthrough of the `alarm` codebase on CodeCanvas [he
 ### Android
 Leverages a foreground service with AlarmManager scheduling to ensure alarm reliability, even if the app is terminated. Utilizes AudioManager for robust alarm sound management.
 
+#### Presenting the alarm on your own screen
+
+By default the full screen intent opens your launcher activity, so your whole
+app becomes what the lock screen shows.
+
+If you'd rather present the alarm on a dedicated screen, declare an activity
+that handles `com.gdelataillade.alarm.action.RING` and the plugin will open it
+instead:
+
+```xml
+<activity
+    android:name=".AlarmActivity"
+    android:exported="false"
+    android:launchMode="singleInstance"
+    android:taskAffinity="your.package.alarm"
+    android:excludeFromRecents="true"
+    android:showWhenLocked="true"
+    android:turnScreenOn="true">
+    <intent-filter>
+        <action android:name="com.gdelataillade.alarm.action.RING"/>
+        <category android:name="android.intent.category.DEFAULT"/>
+    </intent-filter>
+</activity>
+```
+
+A separate `taskAffinity` puts it in a task of its own, so finishing it returns
+the user to whatever the alarm interrupted instead of into your app.
+
+The launching intent carries what the screen needs to render without a Flutter
+engine, which is the normal case since a full screen intent starts the process
+without starting Flutter:
+
+| Extra | Value |
+| --- | --- |
+| `alarmId` | The alarm's id, to stop it |
+| `alarmTitle`, `alarmBody` | From `NotificationSettings` |
+| `alarmStopLabel` | `NotificationSettings.stopButton` |
+
+Stop the alarm by broadcasting `com.gdelataillade.alarm.ACTION_STOP` to
+`AlarmReceiver` with the `id` extra.
+
+Declaring no such activity keeps the previous behaviour.
+
 ### iOS
 Keeps the app awake using a silent `AVAudioPlayer` until alarm rings. When in the background, it also uses `Background App Refresh` to periodically ensure the app is still active.
 
