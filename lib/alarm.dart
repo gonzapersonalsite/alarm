@@ -34,11 +34,22 @@ class Alarm {
 
   static final _ringing = BehaviorSubject<AlarmSet>.seeded(AlarmSet.empty());
 
+  static final _snoozed =
+      StreamController<({int id, DateTime nextRingAt})>.broadcast();
+
   /// Stream of the scheduled alarms.
   static ValueStream<AlarmSet> get scheduled => _scheduled.stream;
 
   /// Stream of the ringing alarms.
   static ValueStream<AlarmSet> get ringing => _ringing.stream;
+
+  /// Stream of alarms deferred on the host side, with the instant each one
+  /// rings again.
+  ///
+  /// A snooze never reaches [ringing] as a stop: the alarm is still owed, and
+  /// an application tracking its own alarm state needs to record a deferral
+  /// rather than a dismissal.
+  static Stream<({int id, DateTime nextRingAt})> get snoozed => _snoozed.stream;
 
   /// Stream of the alarm updates.
   ///
@@ -62,6 +73,7 @@ class Alarm {
     AlarmTriggerApiImpl.ensureInitialized(
       alarmRang: alarmRang,
       alarmStopped: _alarmStopped,
+      alarmSnoozed: _alarmSnoozed,
     );
 
     await AlarmStorage.init();
@@ -72,6 +84,8 @@ class Alarm {
   /// Checks if some alarms were set on previous session.
   /// If it's the case then reschedules them.
   static Future<void> checkAlarm() async {
+    await _reportUnobservedSnoozes();
+
     final alarms = await getAlarms();
 
     if (iOS) await stopAll();
@@ -266,6 +280,43 @@ class Alarm {
     _scheduled.add(_scheduled.value.remove(alarm));
     _ringing.add(_ringing.value.add(alarm));
     ringStream.add(alarm);
+  }
+
+  /// Replays snoozes the host recorded while no isolate was listening.
+  ///
+  /// The notification and the ringing screen are native, and a full screen
+  /// intent starts the process without starting Flutter, so a deferral taken
+  /// there is normally observed only here.
+  static Future<void> _reportUnobservedSnoozes() async {
+    final List<SnoozedAlarmWire> unreported;
+    try {
+      unreported = await AlarmApi().takeUnreportedSnoozes();
+    } on Object catch (error) {
+      _log.warning('Could not read unreported snoozes: $error');
+      return;
+    }
+
+    for (final snooze in unreported) {
+      await _alarmSnoozed(
+        snooze.alarmId,
+        DateTime.fromMillisecondsSinceEpoch(snooze.millisecondsSinceEpoch),
+      );
+    }
+  }
+
+  /// PRIVATE: Called by the native platform when an alarm was deferred there.
+  ///
+  /// The alarm stops ringing and returns to the scheduled set rather than
+  /// leaving it: a snoozed alarm is still owed.
+  static Future<void> _alarmSnoozed(int alarmId, DateTime nextRingAt) async {
+    _ringing.add(_ringing.value.removeById(alarmId));
+
+    final alarm = await getAlarm(alarmId);
+    if (alarm != null) {
+      _scheduled.add(_scheduled.value.removeById(alarmId).add(alarm));
+    }
+    _snoozed.add((id: alarmId, nextRingAt: nextRingAt));
+    updateStream.add(alarmId);
   }
 
   static Future<void> _alarmStopped(int alarmId) async {

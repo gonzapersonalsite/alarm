@@ -8,13 +8,18 @@ typedef AlarmRangCallback = void Function(AlarmSettings alarm);
 /// Callback that is called when an alarm is stopped.
 typedef AlarmStoppedCallback = void Function(int alarmId);
 
+/// Callback that is called when an alarm is deferred on the host side.
+typedef AlarmSnoozedCallback = void Function(int alarmId, DateTime nextRingAt);
+
 /// Implements the API that handles calls coming from the host platform.
 class AlarmTriggerApiImpl extends AlarmTriggerApi {
   AlarmTriggerApiImpl._({
     required AlarmRangCallback alarmRang,
     required AlarmStoppedCallback alarmStopped,
+    required AlarmSnoozedCallback alarmSnoozed,
   })  : _alarmRang = alarmRang,
         _alarmStopped = alarmStopped,
+        _alarmSnoozed = alarmSnoozed,
         super() {
     AlarmTriggerApi.setUp(this);
   }
@@ -28,15 +33,19 @@ class AlarmTriggerApiImpl extends AlarmTriggerApi {
 
   final AlarmStoppedCallback _alarmStopped;
 
+  final AlarmSnoozedCallback _alarmSnoozed;
+
   /// Ensures that this Dart isolate is listening for method calls that may come
   /// from the host platform.
   static void ensureInitialized({
     required AlarmRangCallback alarmRang,
     required AlarmStoppedCallback alarmStopped,
+    required AlarmSnoozedCallback alarmSnoozed,
   }) {
     _instance ??= AlarmTriggerApiImpl._(
       alarmRang: alarmRang,
       alarmStopped: alarmStopped,
+      alarmSnoozed: alarmSnoozed,
     );
   }
 
@@ -57,5 +66,13 @@ class AlarmTriggerApiImpl extends AlarmTriggerApi {
   Future<void> alarmStopped(int alarmId) async {
     _log.info('Alarm with id $alarmId stopped.');
     _alarmStopped(alarmId);
+  }
+
+  @override
+  Future<void> alarmSnoozed(int alarmId, int millisecondsSinceEpoch) async {
+    final nextRingAt =
+        DateTime.fromMillisecondsSinceEpoch(millisecondsSinceEpoch);
+    _log.info('Alarm with id $alarmId snoozed until $nextRingAt.');
+    _alarmSnoozed(alarmId, nextRingAt);
   }
 }

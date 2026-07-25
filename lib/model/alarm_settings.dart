@@ -27,6 +27,7 @@ class AlarmSettings extends Equatable {
     this.androidStopAlarmOnTermination = true,
     this.preferConnectedAudioDevice = false,
     this.payload,
+    this.androidSnoozeDuration,
   });
 
   /// Constructs an `AlarmSettings` instance from the given JSON data.
@@ -211,6 +212,15 @@ class AlarmSettings extends Equatable {
   /// Caller is responsible for serializing and parsing the payload.
   final String? payload;
 
+  /// How long the snooze action defers this alarm.
+  ///
+  /// **Android only.** When set, and when [NotificationSettings.snoozeButton]
+  /// gives it a label, the alarm notification offers a snooze that stops the
+  /// current ring and re-registers the alarm this far ahead.
+  ///
+  /// Null, or anything under a second, offers no snooze.
+  final Duration? androidSnoozeDuration;
+
   /// Converts the `AlarmSettings` instance to a JSON object.
   Map<String, dynamic> toJson() => _$AlarmSettingsToJson(this);
 
@@ -230,6 +240,7 @@ class AlarmSettings extends Equatable {
         iOSBackgroundAudio: iOSBackgroundAudio,
         androidStopAlarmOnTermination: androidStopAlarmOnTermination,
         preferConnectedAudioDevice: preferConnectedAudioDevice,
+        androidSnoozeDurationSeconds: androidSnoozeDuration?.inSeconds,
       );
 
   /// Creates a copy of `AlarmSettings` but with the given fields replaced with
@@ -264,6 +275,7 @@ class AlarmSettings extends Equatable {
     bool? androidStopAlarmOnTermination,
     bool? preferConnectedAudioDevice,
     String? Function()? payload,
+    Duration? androidSnoozeDuration,
   }) {
     return AlarmSettings(
       id: id ?? this.id,
@@ -288,6 +300,8 @@ class AlarmSettings extends Equatable {
       // The function wrapper allows callers to clear the payload by
       // explicitly returning null.
       payload: payload != null ? payload() : this.payload,
+      androidSnoozeDuration:
+          androidSnoozeDuration ?? this.androidSnoozeDuration,
     );
   }
 
@@ -308,5 +322,6 @@ class AlarmSettings extends Equatable {
         androidStopAlarmOnTermination,
         preferConnectedAudioDevice,
         payload,
+        androidSnoozeDuration,
       ];
 }

@@ -1,5 +1,6 @@
 package com.gdelataillade.alarm.alarm
 
+import com.gdelataillade.alarm.api.AlarmApiImpl
 import com.gdelataillade.alarm.services.AudioService
 import com.gdelataillade.alarm.services.AlarmStorage
 import com.gdelataillade.alarm.services.VibrationService
@@ -23,6 +24,7 @@ import com.gdelataillade.alarm.services.NotificationHandler
 import com.gdelataillade.alarm.services.NotificationOnKillService
 import io.flutter.Log
 import kotlinx.serialization.json.Json
+import java.util.Date
 
 class AlarmService : Service() {
     companion object {
@@ -137,7 +139,8 @@ class AlarmService : Service() {
             alarmSettings.notificationSettings,
             alarmSettings.androidFullScreenIntent,
             pendingIntent,
-            id
+            id,
+            alarmSettings.canSnooze
         )
 
         // Start the service in the foreground
@@ -312,6 +315,48 @@ class AlarmService : Service() {
     fun handleStopAlarmCommand(alarmId: Int) {
         if (alarmId == 0) return
         unsaveAlarm(alarmId)
+    }
+
+    /**
+     * Defers [alarmId] by its own snooze duration.
+     *
+     * The alarm is silenced and re-registered rather than unsaved, so it never
+     * reaches Flutter as a stop: a snoozed alarm is still owed.
+     */
+    fun handleSnoozeAlarmCommand(alarmId: Int) {
+        if (alarmId == 0) return
+
+        val settings = queuedAlarmSettings[alarmId]
+            ?: alarmStorage?.getSavedAlarms()?.firstOrNull { it.id == alarmId }
+        if (settings == null || !settings.canSnooze) {
+            Log.d(TAG, "Alarm $alarmId cannot be snoozed; stopping instead.")
+            unsaveAlarm(alarmId)
+            return
+        }
+
+        val nextRingAt =
+            System.currentTimeMillis() + settings.androidSnoozeDurationSeconds!! * 1000L
+
+        // Silence first: an alarm that is both ringing and scheduled would
+        // keep the foreground service alive over a deferral.
+        stopAlarm(alarmId)
+
+        // Reuse the ordinary scheduling path so a snooze is registered exactly
+        // like any other alarm, including its storage entry.
+        AlarmApiImpl(applicationContext).setAlarm(settings.copy(dateTime = Date(nextRingAt)))
+
+        // Record it before reporting it. The usual case is that no Flutter
+        // engine exists, so the report below reaches nobody and this durable
+        // record is the only thing that survives. An isolate that receives
+        // both sees the same deferral twice, which is harmless: applying a
+        // snooze already applied changes nothing.
+        alarmStorage?.saveSnooze(alarmId, nextRingAt)
+
+        AlarmPlugin.alarmTriggerApi?.alarmSnoozed(alarmId.toLong(), nextRingAt) {
+            if (it.isFailure) {
+                Log.d(TAG, "Snooze notification for $alarmId errored in Flutter.")
+            }
+        }
     }
 
     private fun unsaveAlarm(id: Int) {

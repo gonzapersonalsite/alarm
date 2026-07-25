@@ -31,6 +31,7 @@ class AlarmSettingsWire {
     required this.iOSBackgroundAudio,
     required this.androidStopAlarmOnTermination,
     required this.preferConnectedAudioDevice,
+    required this.androidSnoozeDurationSeconds,
   });
 
   final int id;
@@ -47,6 +48,11 @@ class AlarmSettingsWire {
   final bool iOSBackgroundAudio;
   final bool androidStopAlarmOnTermination;
   final bool preferConnectedAudioDevice;
+
+  /// How long the snooze action defers the alarm, in seconds.
+  ///
+  /// Null, or anything below one, offers no snooze. Android only.
+  final int? androidSnoozeDurationSeconds;
 }
 
 class VolumeSettingsWire {
@@ -86,6 +92,7 @@ class NotificationSettingsWire {
     required this.iconColorGreen,
     required this.iconColorBlue,
     required this.keepNotificationAfterAlarmEnds,
+    required this.snoozeButton,
   });
 
   final String title;
@@ -97,6 +104,13 @@ class NotificationSettingsWire {
   final double? iconColorGreen;
   final double? iconColorBlue;
   final bool keepNotificationAfterAlarmEnds;
+
+  /// Label for the snooze action. Null omits the action.
+  ///
+  /// Only shown when [AlarmSettingsWire.androidSnoozeDurationSeconds] also
+  /// gives it a duration; a label alone describes nothing the platform can
+  /// perform. Android only.
+  final String? snoozeButton;
 }
 
 /// Errors that can occur when interacting with the Alarm API.
@@ -138,6 +152,28 @@ abstract class AlarmApi {
   });
 
   void disableWarningNotificationOnKill();
+
+  /// Drains the snoozes taken on the host side that no Dart isolate has
+  /// observed yet.
+  ///
+  /// A snooze is normally taken with no engine running: the notification and
+  /// the ringing screen are native, and a full screen intent starts the
+  /// process without starting Flutter. [AlarmTriggerApi.alarmSnoozed] reaches
+  /// nobody in that case, so the deferral is held until an isolate collects
+  /// it. Draining is destructive; a collected snooze is not reported twice.
+  @async
+  List<SnoozedAlarmWire> takeUnreportedSnoozes();
+}
+
+/// One deferral taken on the host side.
+class SnoozedAlarmWire {
+  const SnoozedAlarmWire({
+    required this.alarmId,
+    required this.millisecondsSinceEpoch,
+  });
+
+  final int alarmId;
+  final int millisecondsSinceEpoch;
 }
 
 @FlutterApi()
@@ -147,4 +183,13 @@ abstract class AlarmTriggerApi {
 
   @async
   void alarmStopped(int alarmId);
+
+  /// An alarm was deferred on the host side and re-registered for
+  /// [millisecondsSinceEpoch].
+  ///
+  /// Distinct from [alarmStopped] because the alarm is still owed: reporting a
+  /// snooze as a stop would tell the application the user dismissed something
+  /// they asked to be reminded of again.
+  @async
+  void alarmSnoozed(int alarmId, int millisecondsSinceEpoch);
 }

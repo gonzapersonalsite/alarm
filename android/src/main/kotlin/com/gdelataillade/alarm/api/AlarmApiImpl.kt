@@ -2,6 +2,7 @@ package com.gdelataillade.alarm.api
 
 import com.gdelataillade.alarm.generated.AlarmApi
 import com.gdelataillade.alarm.generated.AlarmSettingsWire
+import com.gdelataillade.alarm.generated.SnoozedAlarmWire
 import android.app.AlarmManager
 import android.app.PendingIntent
 import android.content.Context
@@ -112,6 +113,17 @@ class AlarmApiImpl(private val context: Context) : AlarmApi {
 
     override fun disableWarningNotificationOnKill() {
         turnOffWarningNotificationOnKill(context)
+    }
+
+    override fun takeUnreportedSnoozes(callback: (Result<List<SnoozedAlarmWire>>) -> Unit) {
+        val snoozes = AlarmStorage(context).takeSnoozes()
+        callback(
+            Result.success(
+                snoozes.map { (id, nextRingAt) ->
+                    SnoozedAlarmWire(id.toLong(), nextRingAt)
+                }
+            )
+        )
     }
 
     fun setAlarm(alarm: AlarmSettings) {

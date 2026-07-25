@@ -30,7 +30,12 @@ data class AlarmSettings(
     val allowSameSecondScheduling: Boolean = false, // Defaults to false for backward compatibility
     val androidStopAlarmOnTermination: Boolean = true, // Defaults to true for backward compatibility
     val preferConnectedAudioDevice: Boolean = false, // Defaults to false for backward compatibility
+    val androidSnoozeDurationSeconds: Int? = null, // Null or below one offers no snooze
 ) {
+    /** Whether this alarm can be deferred rather than only stopped. */
+    val canSnooze: Boolean
+        get() = (androidSnoozeDurationSeconds ?: 0) >= 1
+
     companion object {
         fun fromWire(e: AlarmSettingsWire): AlarmSettings {
             return AlarmSettings(
@@ -47,6 +52,7 @@ data class AlarmSettings(
                 e.allowSameSecondScheduling,
                 e.androidStopAlarmOnTermination,
                 e.preferConnectedAudioDevice,
+                e.androidSnoozeDurationSeconds?.toInt(),
             )
         }
 
@@ -81,6 +87,10 @@ data class AlarmSettings(
             // Handle backward compatibility for `preferConnectedAudioDevice`
             val preferConnectedAudioDevice = jsonObject.primitiveBoolean("preferConnectedAudioDevice") ?: false
 
+            // Absent in alarms saved before snooze existed, which simply means
+            // the alarm can only be stopped.
+            val androidSnoozeDurationSeconds = jsonObject.primitiveInt("androidSnoozeDurationSeconds")
+
             // Handle backward compatibility for `volumeSettings`
             val volumeSettings = jsonObject["volumeSettings"]?.let {
                 Json.decodeFromJsonElement(VolumeSettings.serializer(), it)
@@ -113,6 +123,7 @@ data class AlarmSettings(
                 allowSameSecondScheduling = allowSameSecondScheduling,
                 androidStopAlarmOnTermination = androidStopAlarmOnTermination,
                 preferConnectedAudioDevice = preferConnectedAudioDevice,
+                androidSnoozeDurationSeconds = androidSnoozeDurationSeconds,
             )
         }
     }

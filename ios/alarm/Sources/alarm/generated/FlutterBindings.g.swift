@@ -164,6 +164,10 @@ struct AlarmSettingsWire: Hashable {
   var iOSBackgroundAudio: Bool
   var androidStopAlarmOnTermination: Bool
   var preferConnectedAudioDevice: Bool
+  /// How long the snooze action defers the alarm, in seconds.
+  ///
+  /// Null, or anything below one, offers no snooze. Android only.
+  var androidSnoozeDurationSeconds: Int64? = nil
 
 
   // swift-format-ignore: AlwaysUseLowerCamelCase
@@ -182,6 +186,7 @@ struct AlarmSettingsWire: Hashable {
     let iOSBackgroundAudio = pigeonVar_list[11] as! Bool
     let androidStopAlarmOnTermination = pigeonVar_list[12] as! Bool
     let preferConnectedAudioDevice = pigeonVar_list[13] as! Bool
+    let androidSnoozeDurationSeconds: Int64? = nilOrValue(pigeonVar_list[14])
 
     return AlarmSettingsWire(
       id: id,
@@ -197,7 +202,8 @@ struct AlarmSettingsWire: Hashable {
       allowSameSecondScheduling: allowSameSecondScheduling,
       iOSBackgroundAudio: iOSBackgroundAudio,
       androidStopAlarmOnTermination: androidStopAlarmOnTermination,
-      preferConnectedAudioDevice: preferConnectedAudioDevice
+      preferConnectedAudioDevice: preferConnectedAudioDevice,
+      androidSnoozeDurationSeconds: androidSnoozeDurationSeconds
     )
   }
   func toList() -> [Any?] {
@@ -216,6 +222,7 @@ struct AlarmSettingsWire: Hashable {
       iOSBackgroundAudio,
       androidStopAlarmOnTermination,
       preferConnectedAudioDevice,
+      androidSnoozeDurationSeconds,
     ]
   }
   static func == (lhs: AlarmSettingsWire, rhs: AlarmSettingsWire) -> Bool {
@@ -306,6 +313,12 @@ struct NotificationSettingsWire: Hashable {
   var iconColorGreen: Double? = nil
   var iconColorBlue: Double? = nil
   var keepNotificationAfterAlarmEnds: Bool
+  /// Label for the snooze action. Null omits the action.
+  ///
+  /// Only shown when [AlarmSettingsWire.androidSnoozeDurationSeconds] also
+  /// gives it a duration; a label alone describes nothing the platform can
+  /// perform. Android only.
+  var snoozeButton: String? = nil
 
 
   // swift-format-ignore: AlwaysUseLowerCamelCase
@@ -319,6 +332,7 @@ struct NotificationSettingsWire: Hashable {
     let iconColorGreen: Double? = nilOrValue(pigeonVar_list[6])
     let iconColorBlue: Double? = nilOrValue(pigeonVar_list[7])
     let keepNotificationAfterAlarmEnds = pigeonVar_list[8] as! Bool
+    let snoozeButton: String? = nilOrValue(pigeonVar_list[9])
 
     return NotificationSettingsWire(
       title: title,
@@ -329,7 +343,8 @@ struct NotificationSettingsWire: Hashable {
       iconColorRed: iconColorRed,
       iconColorGreen: iconColorGreen,
       iconColorBlue: iconColorBlue,
-      keepNotificationAfterAlarmEnds: keepNotificationAfterAlarmEnds
+      keepNotificationAfterAlarmEnds: keepNotificationAfterAlarmEnds,
+      snoozeButton: snoozeButton
     )
   }
   func toList() -> [Any?] {
@@ -343,9 +358,41 @@ struct NotificationSettingsWire: Hashable {
       iconColorGreen,
       iconColorBlue,
       keepNotificationAfterAlarmEnds,
+      snoozeButton,
     ]
   }
   static func == (lhs: NotificationSettingsWire, rhs: NotificationSettingsWire) -> Bool {
+    return deepEqualsFlutterBindings(lhs.toList(), rhs.toList())  }
+  func hash(into hasher: inout Hasher) {
+    deepHashFlutterBindings(value: toList(), hasher: &hasher)
+  }
+}
+
+/// One deferral taken on the host side.
+///
+/// Generated class from Pigeon that represents data sent in messages.
+struct SnoozedAlarmWire: Hashable {
+  var alarmId: Int64
+  var millisecondsSinceEpoch: Int64
+
+
+  // swift-format-ignore: AlwaysUseLowerCamelCase
+  static func fromList(_ pigeonVar_list: [Any?]) -> SnoozedAlarmWire? {
+    let alarmId = pigeonVar_list[0] as! Int64
+    let millisecondsSinceEpoch = pigeonVar_list[1] as! Int64
+
+    return SnoozedAlarmWire(
+      alarmId: alarmId,
+      millisecondsSinceEpoch: millisecondsSinceEpoch
+    )
+  }
+  func toList() -> [Any?] {
+    return [
+      alarmId,
+      millisecondsSinceEpoch,
+    ]
+  }
+  static func == (lhs: SnoozedAlarmWire, rhs: SnoozedAlarmWire) -> Bool {
     return deepEqualsFlutterBindings(lhs.toList(), rhs.toList())  }
   func hash(into hasher: inout Hasher) {
     deepHashFlutterBindings(value: toList(), hasher: &hasher)
@@ -369,6 +416,8 @@ private class FlutterBindingsPigeonCodecReader: FlutterStandardReader {
       return VolumeFadeStepWire.fromList(self.readValue() as! [Any?])
     case 133:
       return NotificationSettingsWire.fromList(self.readValue() as! [Any?])
+    case 134:
+      return SnoozedAlarmWire.fromList(self.readValue() as! [Any?])
     default:
       return super.readValue(ofType: type)
     }
@@ -391,6 +440,9 @@ private class FlutterBindingsPigeonCodecWriter: FlutterStandardWriter {
       super.writeValue(value.toList())
     } else if let value = value as? NotificationSettingsWire {
       super.writeByte(133)
+      super.writeValue(value.toList())
+    } else if let value = value as? SnoozedAlarmWire {
+      super.writeByte(134)
       super.writeValue(value.toList())
     } else {
       super.writeValue(value)
@@ -421,6 +473,15 @@ protocol AlarmApi {
   func isRinging(alarmId: Int64?) throws -> Bool
   func setWarningNotificationOnKill(title: String, body: String) throws
   func disableWarningNotificationOnKill() throws
+  /// Drains the snoozes taken on the host side that no Dart isolate has
+  /// observed yet.
+  ///
+  /// A snooze is normally taken with no engine running: the notification and
+  /// the ringing screen are native, and a full screen intent starts the
+  /// process without starting Flutter. [AlarmTriggerApi.alarmSnoozed] reaches
+  /// nobody in that case, so the deferral is held until an isolate collects
+  /// it. Draining is destructive; a collected snooze is not reported twice.
+  func takeUnreportedSnoozes(completion: @escaping (Result<[SnoozedAlarmWire], Error>) -> Void)
 }
 
 /// Generated setup class from Pigeon to handle messages through the `binaryMessenger`.
@@ -522,12 +583,42 @@ class AlarmApiSetup {
     } else {
       disableWarningNotificationOnKillChannel.setMessageHandler(nil)
     }
+    /// Drains the snoozes taken on the host side that no Dart isolate has
+    /// observed yet.
+    ///
+    /// A snooze is normally taken with no engine running: the notification and
+    /// the ringing screen are native, and a full screen intent starts the
+    /// process without starting Flutter. [AlarmTriggerApi.alarmSnoozed] reaches
+    /// nobody in that case, so the deferral is held until an isolate collects
+    /// it. Draining is destructive; a collected snooze is not reported twice.
+    let takeUnreportedSnoozesChannel = FlutterBasicMessageChannel(name: "dev.flutter.pigeon.alarm.AlarmApi.takeUnreportedSnoozes\(channelSuffix)", binaryMessenger: binaryMessenger, codec: codec)
+    if let api = api {
+      takeUnreportedSnoozesChannel.setMessageHandler { _, reply in
+        api.takeUnreportedSnoozes { result in
+          switch result {
+          case .success(let res):
+            reply(wrapResult(res))
+          case .failure(let error):
+            reply(wrapError(error))
+          }
+        }
+      }
+    } else {
+      takeUnreportedSnoozesChannel.setMessageHandler(nil)
+    }
   }
 }
 /// Generated protocol from Pigeon that represents Flutter messages that can be called from Swift.
 protocol AlarmTriggerApiProtocol {
   func alarmRang(alarmId alarmIdArg: Int64, completion: @escaping (Result<Void, PigeonError>) -> Void)
   func alarmStopped(alarmId alarmIdArg: Int64, completion: @escaping (Result<Void, PigeonError>) -> Void)
+  /// An alarm was deferred on the host side and re-registered for
+  /// [millisecondsSinceEpoch].
+  ///
+  /// Distinct from [alarmStopped] because the alarm is still owed: reporting a
+  /// snooze as a stop would tell the application the user dismissed something
+  /// they asked to be reminded of again.
+  func alarmSnoozed(alarmId alarmIdArg: Int64, millisecondsSinceEpoch millisecondsSinceEpochArg: Int64, completion: @escaping (Result<Void, PigeonError>) -> Void)
 }
 class AlarmTriggerApi: AlarmTriggerApiProtocol {
   private let binaryMessenger: FlutterBinaryMessenger
@@ -561,6 +652,30 @@ class AlarmTriggerApi: AlarmTriggerApiProtocol {
     let channelName: String = "dev.flutter.pigeon.alarm.AlarmTriggerApi.alarmStopped\(messageChannelSuffix)"
     let channel = FlutterBasicMessageChannel(name: channelName, binaryMessenger: binaryMessenger, codec: codec)
     channel.sendMessage([alarmIdArg] as [Any?]) { response in
+      guard let listResponse = response as? [Any?] else {
+        completion(.failure(createConnectionError(withChannelName: channelName)))
+        return
+      }
+      if listResponse.count > 1 {
+        let code: String = listResponse[0] as! String
+        let message: String? = nilOrValue(listResponse[1])
+        let details: String? = nilOrValue(listResponse[2])
+        completion(.failure(PigeonError(code: code, message: message, details: details)))
+      } else {
+        completion(.success(()))
+      }
+    }
+  }
+  /// An alarm was deferred on the host side and re-registered for
+  /// [millisecondsSinceEpoch].
+  ///
+  /// Distinct from [alarmStopped] because the alarm is still owed: reporting a
+  /// snooze as a stop would tell the application the user dismissed something
+  /// they asked to be reminded of again.
+  func alarmSnoozed(alarmId alarmIdArg: Int64, millisecondsSinceEpoch millisecondsSinceEpochArg: Int64, completion: @escaping (Result<Void, PigeonError>) -> Void) {
+    let channelName: String = "dev.flutter.pigeon.alarm.AlarmTriggerApi.alarmSnoozed\(messageChannelSuffix)"
+    let channel = FlutterBasicMessageChannel(name: channelName, binaryMessenger: binaryMessenger, codec: codec)
+    channel.sendMessage([alarmIdArg, millisecondsSinceEpochArg] as [Any?]) { response in
       guard let listResponse = response as? [Any?] else {
         completion(.failure(createConnectionError(withChannelName: channelName)))
         return

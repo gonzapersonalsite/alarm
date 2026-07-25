@@ -15,6 +15,7 @@ class AlarmReceiver : BroadcastReceiver() {
         private const val TAG = "AlarmReceiver"
 
         const val ACTION_ALARM_STOP = "com.gdelataillade.alarm.ACTION_STOP"
+        const val ACTION_ALARM_SNOOZE = "com.gdelataillade.alarm.ACTION_SNOOZE"
     }
 
     override fun onReceive(context: Context, intent: Intent) {
@@ -39,6 +40,14 @@ class AlarmReceiver : BroadcastReceiver() {
                     Log.d(TAG, "Alarm stopped notification for $id processed by Flutter: ${it.isSuccess}")
                 }
             }
+            return
+        }
+
+        // Defer the alarm from the notification's snooze action.
+        if (intent.action == ACTION_ALARM_SNOOZE) {
+            val id = intent.getIntExtra("id", 0)
+            Log.d(TAG, "Received snooze alarm command, id: $id")
+            AlarmService.instance?.handleSnoozeAlarmCommand(id)
             return
         }
 

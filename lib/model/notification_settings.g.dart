@@ -16,6 +16,7 @@ NotificationSettings _$NotificationSettingsFromJson(
           title: $checkedConvert('title', (v) => v as String),
           body: $checkedConvert('body', (v) => v as String),
           stopButton: $checkedConvert('stopButton', (v) => v as String?),
+          snoozeButton: $checkedConvert('snoozeButton', (v) => v as String?),
           icon: $checkedConvert('icon', (v) => v as String?),
           iconColor: $checkedConvert(
               'iconColor',
@@ -37,6 +38,7 @@ Map<String, dynamic> _$NotificationSettingsToJson(
       'title': instance.title,
       'body': instance.body,
       if (instance.stopButton case final value?) 'stopButton': value,
+      if (instance.snoozeButton case final value?) 'snoozeButton': value,
       if (instance.icon case final value?) 'icon': value,
       if (instance.iconColor case final value?) 'iconColor': value.value,
       'keepNotificationAfterAlarmEnds': instance.keepNotificationAfterAlarmEnds,

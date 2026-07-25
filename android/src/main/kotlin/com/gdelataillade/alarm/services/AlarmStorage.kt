@@ -24,6 +24,7 @@ class AlarmStorage(context: Context) {
     companion object {
         private const val TAG = "AlarmStorage"
         private const val PREFIX = "__alarm_id__"
+        private const val SNOOZE_PREFIX = "__snoozed_alarm_id__"
     }
 
     private val dataStore = context.dataStore
@@ -74,6 +75,50 @@ class AlarmStorage(context: Context) {
                 }
             }
             alarms
+        }
+    }
+
+    /**
+     * Records that [id] was deferred until [nextRingAtMillis].
+     *
+     * A snooze is normally taken with no Flutter engine running, because the
+     * notification and the ringing screen are native. Holding the deferral
+     * here is what lets the next isolate learn about it instead of finding an
+     * alarm that silently moved.
+     */
+    fun saveSnooze(id: Int, nextRingAtMillis: Long) {
+        return runBlocking {
+            val key = stringPreferencesKey("$SNOOZE_PREFIX$id")
+            dataStore.edit { preferences ->
+                preferences[key] = nextRingAtMillis.toString()
+            }
+        }
+    }
+
+    /** Reads and clears every unreported snooze, keyed by alarm id. */
+    fun takeSnoozes(): Map<Int, Long> {
+        return runBlocking {
+            val stored = dataStore.data.map { prefs ->
+                prefs.asMap().filterKeys { it.name.startsWith(SNOOZE_PREFIX) }
+            }.first()
+
+            val snoozes = mutableMapOf<Int, Long>()
+            stored.forEach { (key, value) ->
+                val id = key.name.removePrefix(SNOOZE_PREFIX).toIntOrNull()
+                val nextRingAt = (value as? String)?.toLongOrNull()
+                if (id == null || nextRingAt == null) {
+                    Log.w(TAG, "Skipping unreadable snooze with key: ${key.name}")
+                } else {
+                    snoozes[id] = nextRingAt
+                }
+            }
+
+            if (stored.isNotEmpty()) {
+                dataStore.edit { preferences ->
+                    stored.keys.forEach { preferences.remove(it) }
+                }
+            }
+            snoozes
         }
     }
 }

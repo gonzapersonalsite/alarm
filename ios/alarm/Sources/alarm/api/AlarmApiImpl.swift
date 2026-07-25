@@ -55,6 +55,14 @@ public class AlarmApiImpl: NSObject, AlarmApi {
             details: nil)
     }
 
+    /// Snoozing is an Android-only capability, so there is never anything
+    /// unreported here.
+    func takeUnreportedSnoozes(
+        completion: @escaping (Result<[SnoozedAlarmWire], Error>) -> Void
+    ) {
+        completion(.success([]))
+    }
+
     @MainActor
     func appRefresh() async {
         BackgroundAudioManager.shared.refresh(registrar: self.registrar)

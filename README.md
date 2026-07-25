@@ -89,6 +89,7 @@ await Alarm.set(alarmSettings: alarmSettings)
 | androidStopAlarmOnTermination                       | `bool`                 | Whether to stop the alarm when an Android task is terminated. Enabled by default.                                                                                                                    |
 | preferConnectedAudioDevice                          | `bool`                 | If true, routes alarm audio to a connected earphone or Bluetooth device when present, falling back to the built-in speaker if not. Uses the media volume slider instead of the alarm slider. Has no effect on iOS. Disabled by default. |
 | payload                                             | `String?`              | Optional data sent with the alarm. Caller handles serialization and parsing.                                                                                                                         |
+| androidSnoozeDuration                               | `Duration?`            | How long the snooze action defers the alarm. Android only. With a `NotificationSettings.snoozeButton` label, the notification offers a snooze that stops the ring and re-registers the alarm this far ahead. No snooze if null. |
 | [notificationSettings](#notificationsettings-model) | `NotificationSettings` | Settings for notification title, body, icon, icon color and action buttons (only stop at the moment).                                                                                                |
 | [volumeSettings](#volumesettings-model)             | `VolumeSettings`       | Settings for alarm volume and fade durations.                                                                                                                                                        |
 
@@ -107,6 +108,7 @@ The property `androidStopAlarmOnTermination` works only on Android as on iOS the
 | title                          | `String`  | Title of the alarm notification.                                                   |
 | body                           | `String`  | Body of the alarm notification.                                                    |
 | stopButton                     | `String?` | Text shown in the stop button of the alarm notification. Button not shown if null. |
+| snoozeButton                   | `String?` | Text shown in the snooze button of the alarm notification. Android only. Shown only when `AlarmSettings.androidSnoozeDuration` is also set. |
 | icon                           | `String?` | Icon to display on the notification. Only customizable on Android.                 |
 | iconColor                      | `Color?`  | Color of the notification icon. Only customizable on Android.                      |
 | keepNotificationAfterAlarmEnds | `bool`    | Keeps the notification visible after the alarm sound ends. iOS only.               |
@@ -253,6 +255,28 @@ Check out this interactive walkthrough of the `alarm` codebase on CodeCanvas [he
 
 ### Android
 Leverages a foreground service with AlarmManager scheduling to ensure alarm reliability, even if the app is terminated. Utilizes AudioManager for robust alarm sound management.
+
+#### Snooze
+
+Give an alarm a `androidSnoozeDuration` and its notification a
+`snoozeButton` label, and the notification offers a snooze that stops the
+current ring and re-registers the alarm that far ahead.
+
+A snooze is reported as `Alarm.snoozed`, never as a stop, because the alarm is
+still owed:
+
+```Dart
+Alarm.snoozed.listen((snooze) {
+  print('Alarm ${snooze.id} rings again at ${snooze.nextRingAt}');
+});
+```
+
+The button is normally pressed with **no Flutter engine running**, since the
+notification is native and the process may not be up. Each deferral is
+therefore recorded natively and replayed on the next `Alarm.init()`, so an app
+that tracks its own alarm state never misses one. Receiving both the live
+report and the replayed one is harmless: applying a snooze already applied
+changes nothing.
 
 ### iOS
 Keeps the app awake using a silent `AVAudioPlayer` until alarm rings. When in the background, it also uses `Background App Refresh` to periodically ensure the app is still active.
