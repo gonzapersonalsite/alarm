@@ -279,9 +279,11 @@ class AlarmService : Service() {
     /** The application's own alarm activity, or null when it declares none. */
     private fun resolveRingIntent(): Intent? {
         val intent = Intent(ACTION_RING).setPackage(applicationContext.packageName)
-        val resolved = applicationContext.packageManager
-            .queryIntentActivities(intent, 0)
-            .firstOrNull() ?: return null
+        val matches = applicationContext.packageManager.queryIntentActivities(intent, 0)
+        if (matches.size > 1) {
+            Log.w(TAG, "${matches.size} activities handle $ACTION_RING; using the first.")
+        }
+        val resolved = matches.firstOrNull() ?: return null
         return intent.setClassName(
             resolved.activityInfo.packageName,
             resolved.activityInfo.name

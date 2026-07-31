@@ -293,7 +293,24 @@ without starting Flutter:
 | `alarmStopLabel` | `NotificationSettings.stopButton` |
 
 Stop the alarm by broadcasting `com.gdelataillade.alarm.ACTION_STOP` to
-`AlarmReceiver` with the `id` extra.
+`AlarmReceiver`. The receiver declares no intent filter, so the broadcast has
+to name it explicitly:
+
+```kotlin
+val stop = Intent(context, AlarmReceiver::class.java).apply {
+    action = "com.gdelataillade.alarm.ACTION_STOP"
+    putExtra("id", alarmId)
+}
+context.sendBroadcast(stop)
+```
+
+Your activity also becomes what tapping the notification opens, not only what
+the full screen intent opens — once declared, it is the alarm surface for both.
+
+Nothing tells your activity that the alarm ended for another reason: the audio
+finished, `Alarm.stop()` was called from Dart, or a queued alarm was promoted.
+Observe `AlarmRingingLiveData.instance` and finish when it turns false — it goes
+false once no alarm is ringing at all.
 
 Declaring no such activity keeps the previous behaviour.
 

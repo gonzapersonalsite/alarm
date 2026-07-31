@@ -1,3 +1,6 @@
+## 5.7.0
+* [Android] Alarms can now be presented on the app's own activity by declaring an intent filter for `com.gdelataillade.alarm.action.RING`, instead of always opening the launcher activity.
+
 ## 5.6.0
 * [Android] Added support for Android Gradle Plugin 9, while keeping AGP 8 compatibility.
 * [Android] Fixed several alarm scheduling, foreground service, and audio playback crashes.
