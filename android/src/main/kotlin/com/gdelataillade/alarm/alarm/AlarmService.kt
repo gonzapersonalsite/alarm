@@ -53,6 +53,15 @@ class AlarmService : Service() {
         const val EXTRA_ALARM_BODY = "alarmBody"
         const val EXTRA_ALARM_STOP_LABEL = "alarmStopLabel"
 
+        /**
+         * Snooze label, already localized, or null when this alarm cannot be
+         * snoozed.
+         *
+         * Gated on the same condition as the notification's snooze action, so
+         * an activity can offer snooze exactly when the notification would.
+         */
+        const val EXTRA_ALARM_SNOOZE_LABEL = "alarmSnoozeLabel"
+
         var instance: AlarmService? = null
 
         @JvmStatic
@@ -266,6 +275,11 @@ class AlarmService : Service() {
             putExtra(EXTRA_ALARM_TITLE, alarmSettings.notificationSettings.title)
             putExtra(EXTRA_ALARM_BODY, alarmSettings.notificationSettings.body)
             putExtra(EXTRA_ALARM_STOP_LABEL, alarmSettings.notificationSettings.stopButton)
+            putExtra(
+                EXTRA_ALARM_SNOOZE_LABEL,
+                alarmSettings.notificationSettings.androidSnoozeButton
+                    ?.takeIf { alarmSettings.canSnooze }
+            )
         } ?: applicationContext.packageManager
             .getLaunchIntentForPackage(applicationContext.packageName)
             ?: Intent()

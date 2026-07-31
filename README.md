@@ -290,21 +290,36 @@ without starting Flutter:
 
 | Extra | Value |
 | --- | --- |
-| `alarmId` | The alarm's id, to stop it |
+| `alarmId` | The alarm's id, to act on it |
 | `alarmTitle`, `alarmBody` | From `NotificationSettings` |
 | `alarmStopLabel` | `NotificationSettings.stopButton` |
+| `alarmSnoozeLabel` | `NotificationSettings.androidSnoozeButton`, or null when this alarm cannot be snoozed |
 
-Stop the alarm by broadcasting `com.gdelataillade.alarm.ACTION_STOP` to
-`AlarmReceiver`. The receiver declares no intent filter, so the broadcast has
-to name it explicitly:
+Resolve the alarm by broadcasting to `AlarmReceiver`. The receiver declares no
+intent filter, so the broadcast has to name it explicitly:
 
 ```kotlin
-val stop = Intent(context, AlarmReceiver::class.java).apply {
-    action = "com.gdelataillade.alarm.ACTION_STOP"
-    putExtra("id", alarmId)
-}
-context.sendBroadcast(stop)
+// Dismiss the alarm.
+context.sendBroadcast(
+    Intent(context, AlarmReceiver::class.java).apply {
+        action = "com.gdelataillade.alarm.ACTION_STOP"
+        putExtra("id", alarmId)
+    }
+)
+
+// Or defer it, if alarmSnoozeLabel was non-null.
+context.sendBroadcast(
+    Intent(context, AlarmReceiver::class.java).apply {
+        action = "com.gdelataillade.alarm.ACTION_SNOOZE"
+        putExtra("id", alarmId)
+    }
+)
 ```
+
+Only offer snooze when `alarmSnoozeLabel` is non-null — it is gated on exactly
+the same condition as the notification's own snooze action, so a null label
+means the alarm has no usable snooze duration and the broadcast would be
+ignored.
 
 Your activity also becomes what tapping the notification opens, not only what
 the full screen intent opens — once declared, it is the alarm surface for both.

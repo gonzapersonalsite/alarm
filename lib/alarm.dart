@@ -84,7 +84,17 @@ class Alarm {
 
   /// Checks if some alarms were set on previous session.
   /// If it's the case then reschedules them.
-  static Future<void> checkAlarm() async {
+  ///
+  /// Single-flight: concurrent callers share one pass rather than interleaving
+  /// two reconciliations over the same alarms.
+  static Future<void> checkAlarm() =>
+      _checkAlarmFuture ??= _checkAlarm().whenComplete(() {
+        _checkAlarmFuture = null;
+      });
+
+  static Future<void>? _checkAlarmFuture;
+
+  static Future<void> _checkAlarm() async {
     final snoozed = await _applyPendingSnoozes();
 
     final alarms = await getAlarms();
@@ -112,6 +122,16 @@ class Alarm {
           _ringing.add(_ringing.value.add(alarm));
           ringStream.add(alarm);
         } else {
+          // Re-read before destroying anything. Every await above is a window
+          // in which a snooze can land, and the snapshot this loop iterates
+          // would still show the pre-snooze time — stopping here would cancel a
+          // deferral the user just asked for.
+          final current = await getAlarm(alarm.id);
+          if (current != null && current.dateTime.isAfter(DateTime.now())) {
+            _log.info('Alarm ${alarm.id} moved to ${current.dateTime} while '
+                'reconciling, so it is left scheduled.');
+            continue;
+          }
           await stop(alarm.id);
         }
       }
@@ -175,6 +195,44 @@ class Alarm {
         message:
             'Alarm id cannot be set smaller than Int min value (-2147483648). '
             'Provided: ${alarmSettings.id}',
+      );
+    }
+
+    final snoozeDuration = alarmSettings.androidSnoozeDuration;
+    if (snoozeDuration != null && snoozeDuration <= Duration.zero) {
+      throw AlarmException(
+        AlarmErrorCode.invalidArguments,
+        message: 'androidSnoozeDuration must be positive. '
+            'Provided: $snoozeDuration',
+      );
+    }
+
+    // Everything below only warns. These settings are inert on iOS, and
+    // NotificationSettings is shared across platforms, so throwing would break
+    // apps that configure a snooze label once for both.
+    final snoozeLabel = alarmSettings.notificationSettings.androidSnoozeButton;
+    final snoozeIsUsable = snoozeDuration != null &&
+        snoozeDuration >= AlarmSettings.minSnoozeDuration;
+
+    if (snoozeDuration != null && !snoozeIsUsable) {
+      _log.warning(
+        'Alarm ${alarmSettings.id} has androidSnoozeDuration $snoozeDuration, '
+        'which is below the ${AlarmSettings.minSnoozeDuration} minimum, so no '
+        'snooze will be offered.',
+      );
+    }
+    if (snoozeLabel != null && !snoozeIsUsable) {
+      _log.warning(
+        'Alarm ${alarmSettings.id} sets a snooze button labelled '
+        '"$snoozeLabel" but no usable androidSnoozeDuration, so the button '
+        'will not be shown.',
+      );
+    }
+    if (snoozeIsUsable && snoozeLabel == null) {
+      _log.warning(
+        'Alarm ${alarmSettings.id} has an androidSnoozeDuration but no '
+        'NotificationSettings.androidSnoozeButton label, so the notification '
+        'will not offer a snooze.',
       );
     }
   }

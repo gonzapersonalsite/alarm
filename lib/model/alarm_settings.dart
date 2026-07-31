@@ -93,6 +93,14 @@ class AlarmSettings extends Equatable {
 
   static final _log = Logger('AlarmSettings');
 
+  /// Shortest [androidSnoozeDuration] the platform will honour.
+  ///
+  /// Below this, Android scheduling stops using `AlarmManager` and falls back
+  /// to an in-process timer that survives neither process death nor
+  /// cancellation — so a shorter snooze could be neither guaranteed nor undone.
+  /// A shorter duration offers no snooze at all rather than an unreliable one.
+  static const minSnoozeDuration = Duration(minutes: 1);
+
   /// Unique identifier associated with the alarm. Cannot be 0 or -1.
   final int id;
 
