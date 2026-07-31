@@ -19,11 +19,8 @@ NotificationSettings _$NotificationSettingsFromJson(
           icon: $checkedConvert('icon', (v) => v as String?),
           iconColor: $checkedConvert(
               'iconColor',
-              (v) => v == null
-                  ? null
-                  : Color(
-                      v as int,
-                    )),
+              (v) =>
+                  const _ColorJsonConverter().fromJson((v as num?)?.toInt())),
           keepNotificationAfterAlarmEnds: $checkedConvert(
               'keepNotificationAfterAlarmEnds', (v) => v as bool? ?? false),
         );
@@ -38,6 +35,8 @@ Map<String, dynamic> _$NotificationSettingsToJson(
       'body': instance.body,
       if (instance.stopButton case final value?) 'stopButton': value,
       if (instance.icon case final value?) 'icon': value,
-      if (instance.iconColor case final value?) 'iconColor': value.value,
+      if (const _ColorJsonConverter().toJson(instance.iconColor)
+          case final value?)
+        'iconColor': value,
       'keepNotificationAfterAlarmEnds': instance.keepNotificationAfterAlarmEnds,
     };
