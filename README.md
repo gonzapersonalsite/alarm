@@ -89,7 +89,7 @@ await Alarm.set(alarmSettings: alarmSettings)
 | androidStopAlarmOnTermination                       | `bool`                 | Whether to stop the alarm when an Android task is terminated. Enabled by default.                                                                                                                    |
 | preferConnectedAudioDevice                          | `bool`                 | If true, routes alarm audio to a connected earphone or Bluetooth device when present, falling back to the built-in speaker if not. Uses the media volume slider instead of the alarm slider. Has no effect on iOS. Disabled by default. |
 | payload                                             | `String?`              | Optional data sent with the alarm. Caller handles serialization and parsing.                                                                                                                         |
-| androidSnoozeDuration                               | `Duration?`            | How long the snooze action defers the alarm. Android only. With a `NotificationSettings.snoozeButton` label, the notification offers a snooze that stops the ring and re-registers the alarm this far ahead. No snooze if null. |
+| androidSnoozeDuration                               | `Duration?`            | How long the snooze action defers the alarm. Android only. With a `NotificationSettings.androidSnoozeButton` label, the notification offers a snooze that stops the ring and re-registers the alarm this far ahead. Minimum one minute. No snooze if null. |
 | [notificationSettings](#notificationsettings-model) | `NotificationSettings` | Settings for notification title, body, icon, icon color and action buttons (only stop at the moment).                                                                                                |
 | [volumeSettings](#volumesettings-model)             | `VolumeSettings`       | Settings for alarm volume and fade durations.                                                                                                                                                        |
 
@@ -108,7 +108,7 @@ The property `androidStopAlarmOnTermination` works only on Android as on iOS the
 | title                          | `String`  | Title of the alarm notification.                                                   |
 | body                           | `String`  | Body of the alarm notification.                                                    |
 | stopButton                     | `String?` | Text shown in the stop button of the alarm notification. Button not shown if null. |
-| snoozeButton                   | `String?` | Text shown in the snooze button of the alarm notification. Android only. Shown only when `AlarmSettings.androidSnoozeDuration` is also set. |
+| androidSnoozeButton            | `String?` | Text shown in the snooze button of the alarm notification. Android only. Shown only when `AlarmSettings.androidSnoozeDuration` also gives it a usable duration. |
 | icon                           | `String?` | Icon to display on the notification. Only customizable on Android.                 |
 | iconColor                      | `Color?`  | Color of the notification icon. Only customizable on Android.                      |
 | keepNotificationAfterAlarmEnds | `bool`    | Keeps the notification visible after the alarm sound ends. iOS only.               |
@@ -319,7 +319,7 @@ Declaring no such activity keeps the previous behaviour.
 #### Snooze
 
 Give an alarm a `androidSnoozeDuration` and its notification a
-`snoozeButton` label, and the notification offers a snooze that stops the
+`androidSnoozeButton` label, and the notification offers a snooze that stops the
 current ring and re-registers the alarm that far ahead.
 
 A snooze is reported as `Alarm.snoozed`, never as a stop, because the alarm is

@@ -95,7 +95,7 @@ class NotificationSettingsWire {
     required this.iconColorGreen,
     required this.iconColorBlue,
     required this.keepNotificationAfterAlarmEnds,
-    required this.snoozeButton,
+    required this.androidSnoozeButton,
   });
 
   final String title;
@@ -113,7 +113,7 @@ class NotificationSettingsWire {
   /// Only shown when [AlarmSettingsWire.androidSnoozeDurationMillis] also
   /// gives it a usable duration; a label alone describes nothing the platform
   /// can perform. Android only.
-  final String? snoozeButton;
+  final String? androidSnoozeButton;
 }
 
 /// Errors that can occur when interacting with the Alarm API.

@@ -321,7 +321,7 @@ struct NotificationSettingsWire: Hashable {
   /// Only shown when [AlarmSettingsWire.androidSnoozeDurationMillis] also
   /// gives it a usable duration; a label alone describes nothing the platform
   /// can perform. Android only.
-  var snoozeButton: String? = nil
+  var androidSnoozeButton: String? = nil
 
 
   // swift-format-ignore: AlwaysUseLowerCamelCase
@@ -335,7 +335,7 @@ struct NotificationSettingsWire: Hashable {
     let iconColorGreen: Double? = nilOrValue(pigeonVar_list[6])
     let iconColorBlue: Double? = nilOrValue(pigeonVar_list[7])
     let keepNotificationAfterAlarmEnds = pigeonVar_list[8] as! Bool
-    let snoozeButton: String? = nilOrValue(pigeonVar_list[9])
+    let androidSnoozeButton: String? = nilOrValue(pigeonVar_list[9])
 
     return NotificationSettingsWire(
       title: title,
@@ -347,7 +347,7 @@ struct NotificationSettingsWire: Hashable {
       iconColorGreen: iconColorGreen,
       iconColorBlue: iconColorBlue,
       keepNotificationAfterAlarmEnds: keepNotificationAfterAlarmEnds,
-      snoozeButton: snoozeButton
+      androidSnoozeButton: androidSnoozeButton
     )
   }
   func toList() -> [Any?] {
@@ -361,7 +361,7 @@ struct NotificationSettingsWire: Hashable {
       iconColorGreen,
       iconColorBlue,
       keepNotificationAfterAlarmEnds,
-      snoozeButton,
+      androidSnoozeButton,
     ]
   }
   static func == (lhs: NotificationSettingsWire, rhs: NotificationSettingsWire) -> Bool {

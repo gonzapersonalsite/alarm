@@ -7,19 +7,15 @@ import android.app.AlarmManager
 import android.app.PendingIntent
 import android.content.Context
 import android.content.Intent
-import android.os.Build
-import android.os.Handler
-import android.os.Looper
 import com.gdelataillade.alarm.alarm.AlarmPlugin
 import com.gdelataillade.alarm.alarm.AlarmReceiver
 import com.gdelataillade.alarm.alarm.AlarmService
 import com.gdelataillade.alarm.models.AlarmSettings
+import com.gdelataillade.alarm.services.AlarmScheduler
 import com.gdelataillade.alarm.services.AlarmStorage
 import com.gdelataillade.alarm.services.NotificationHandler
 import com.gdelataillade.alarm.services.NotificationOnKillService
 import io.flutter.Log
-import kotlinx.serialization.encodeToString
-import kotlinx.serialization.json.Json
 
 class AlarmApiImpl(private val context: Context) : AlarmApi {
     companion object {
@@ -141,112 +137,14 @@ class AlarmApiImpl(private val context: Context) : AlarmApi {
             stopAlarm(alarm.id.toLong()) {}
         }
 
-        val alarmIntent = createAlarmIntent(alarm)
-        // Keep millisecond precision so alarms ring at the exact requested
-        // time instead of up to a second early.
-        val delayInMillis = alarm.dateTime.time - System.currentTimeMillis()
-
         alarmIds.add(alarm.id)
-        AlarmStorage(context).saveAlarm(alarm)
 
-        if (delayInMillis <= 5000L) {
-            handleImmediateAlarm(alarmIntent, delayInMillis)
-        } else {
-            handleDelayedAlarm(alarmIntent, alarm.dateTime.time, alarm.id)
-        }
+        // Persisting and arming live in AlarmScheduler so the snooze path can
+        // reuse them without also inheriting the stop-and-replace preamble
+        // above, which would report the deferral to Flutter as a stop.
+        AlarmScheduler.schedule(context, alarm)
 
         updateWarningNotificationState()
-    }
-
-    private fun createAlarmIntent(alarm: AlarmSettings): Intent {
-        val alarmIntent = Intent(context, AlarmReceiver::class.java)
-        alarmIntent.putExtra("id", alarm.id)
-        alarmIntent.putExtra("alarmSettings", Json.encodeToString(alarm))
-        return alarmIntent
-    }
-
-    private fun handleImmediateAlarm(intent: Intent, delayInMillis: Long) {
-        val handler = Handler(Looper.getMainLooper())
-        handler.postDelayed({
-            context.sendBroadcast(intent)
-        }, delayInMillis.coerceAtLeast(0L))
-    }
-
-    private fun handleDelayedAlarm(
-        intent: Intent,
-        triggerTimeMillis: Long,
-        id: Int,
-    ) {
-        try {
-            val pendingIntent = PendingIntent.getBroadcast(
-                context,
-                id,
-                intent,
-                PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
-            )
-
-            val alarmManager = context.getSystemService(Context.ALARM_SERVICE) as? AlarmManager
-                ?: throw IllegalStateException("AlarmManager not available")
-
-            setExactAlarm(alarmManager, triggerTimeMillis, pendingIntent)
-        } catch (e: ClassCastException) {
-            Log.e(TAG, "AlarmManager service type casting failed", e)
-        } catch (e: IllegalStateException) {
-            Log.e(TAG, "AlarmManager service not available", e)
-        } catch (e: Exception) {
-            Log.e(TAG, "Error in handling delayed alarm", e)
-        }
-    }
-
-    private fun setExactAlarm(
-        alarmManager: AlarmManager,
-        triggerTimeMillis: Long,
-        pendingIntent: PendingIntent,
-    ) {
-        // On Android 12+ the user can revoke the exact alarm permission at any
-        // time. Fall back to an inexact alarm instead of silently scheduling
-        // nothing: the alarm may ring a few minutes late, but it will ring.
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S &&
-            !alarmManager.canScheduleExactAlarms()
-        ) {
-            Log.w(
-                TAG,
-                "SCHEDULE_EXACT_ALARM permission not granted. Falling back to an " +
-                    "inexact alarm, which may ring late. Ask the user to grant the " +
-                    "'Alarms & reminders' permission for exact scheduling."
-            )
-            alarmManager.setAndAllowWhileIdle(
-                AlarmManager.RTC_WAKEUP,
-                triggerTimeMillis,
-                pendingIntent
-            )
-            return
-        }
-
-        try {
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-                alarmManager.setExactAndAllowWhileIdle(
-                    AlarmManager.RTC_WAKEUP,
-                    triggerTimeMillis,
-                    pendingIntent
-                )
-            } else {
-                alarmManager.setExact(AlarmManager.RTC_WAKEUP, triggerTimeMillis, pendingIntent)
-            }
-        } catch (e: SecurityException) {
-            // Defensive: the permission state changed between the check above
-            // and the call, or an OEM enforces it on older API levels.
-            Log.e(TAG, "Exact alarm scheduling rejected; falling back to inexact alarm", e)
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-                alarmManager.setAndAllowWhileIdle(
-                    AlarmManager.RTC_WAKEUP,
-                    triggerTimeMillis,
-                    pendingIntent
-                )
-            } else {
-                alarmManager.set(AlarmManager.RTC_WAKEUP, triggerTimeMillis, pendingIntent)
-            }
-        }
     }
 
     private fun updateWarningNotificationState() {

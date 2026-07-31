@@ -65,6 +65,6 @@ Map<String, dynamic> _$AlarmSettingsToJson(AlarmSettings instance) =>
       'androidStopAlarmOnTermination': instance.androidStopAlarmOnTermination,
       'preferConnectedAudioDevice': instance.preferConnectedAudioDevice,
       if (instance.payload case final value?) 'payload': value,
-      if (instance.androidSnoozeDuration case final value?)
-        'androidSnoozeDuration': value.inMicroseconds,
+      if (instance.androidSnoozeDuration?.inMicroseconds case final value?)
+        'androidSnoozeDuration': value,
     };

@@ -214,11 +214,14 @@ class AlarmSettings extends Equatable {
 
   /// How long the snooze action defers this alarm.
   ///
-  /// **Android only.** When set, and when [NotificationSettings.snoozeButton]
-  /// gives it a label, the alarm notification offers a snooze that stops the
-  /// current ring and re-registers the alarm this far ahead.
+  /// **Android only.** When set, and when
+  /// [NotificationSettings.androidSnoozeButton] gives it a label, the alarm
+  /// notification offers a snooze that stops the current ring and re-registers
+  /// the alarm this far ahead.
   ///
-  /// Null, or anything under a second, offers no snooze.
+  /// Null, or anything under a minute, offers no snooze. The minimum exists
+  /// because Android scheduling stops using `AlarmManager` for very short
+  /// delays, and the fallback survives neither process death nor cancellation.
   final Duration? androidSnoozeDuration;
 
   /// Converts the `AlarmSettings` instance to a JSON object.

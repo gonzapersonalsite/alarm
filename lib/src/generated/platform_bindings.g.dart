@@ -296,7 +296,7 @@ class NotificationSettingsWire {
     this.iconColorGreen,
     this.iconColorBlue,
     required this.keepNotificationAfterAlarmEnds,
-    this.snoozeButton,
+    this.androidSnoozeButton,
   });
 
   String title;
@@ -322,7 +322,7 @@ class NotificationSettingsWire {
   /// Only shown when [AlarmSettingsWire.androidSnoozeDurationMillis] also
   /// gives it a usable duration; a label alone describes nothing the platform
   /// can perform. Android only.
-  String? snoozeButton;
+  String? androidSnoozeButton;
 
   List<Object?> _toList() {
     return <Object?>[
@@ -335,7 +335,7 @@ class NotificationSettingsWire {
       iconColorGreen,
       iconColorBlue,
       keepNotificationAfterAlarmEnds,
-      snoozeButton,
+      androidSnoozeButton,
     ];
   }
 
@@ -355,7 +355,7 @@ class NotificationSettingsWire {
       iconColorGreen: result[6] as double?,
       iconColorBlue: result[7] as double?,
       keepNotificationAfterAlarmEnds: result[8]! as bool,
-      snoozeButton: result[9] as String?,
+      androidSnoozeButton: result[9] as String?,
     );
   }
 

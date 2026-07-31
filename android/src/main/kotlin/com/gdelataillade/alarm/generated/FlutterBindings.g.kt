@@ -272,7 +272,7 @@ data class NotificationSettingsWire (
    * gives it a usable duration; a label alone describes nothing the platform
    * can perform. Android only.
    */
-  val snoozeButton: String? = null
+  val androidSnoozeButton: String? = null
 )
  {
   companion object {
@@ -286,8 +286,8 @@ data class NotificationSettingsWire (
       val iconColorGreen = pigeonVar_list[6] as Double?
       val iconColorBlue = pigeonVar_list[7] as Double?
       val keepNotificationAfterAlarmEnds = pigeonVar_list[8] as Boolean
-      val snoozeButton = pigeonVar_list[9] as String?
-      return NotificationSettingsWire(title, body, stopButton, icon, iconColorAlpha, iconColorRed, iconColorGreen, iconColorBlue, keepNotificationAfterAlarmEnds, snoozeButton)
+      val androidSnoozeButton = pigeonVar_list[9] as String?
+      return NotificationSettingsWire(title, body, stopButton, icon, iconColorAlpha, iconColorRed, iconColorGreen, iconColorBlue, keepNotificationAfterAlarmEnds, androidSnoozeButton)
     }
   }
   fun toList(): List<Any?> {
@@ -301,7 +301,7 @@ data class NotificationSettingsWire (
       iconColorGreen,
       iconColorBlue,
       keepNotificationAfterAlarmEnds,
-      snoozeButton,
+      androidSnoozeButton,
     )
   }
   override fun equals(other: Any?): Boolean {

@@ -44,7 +44,14 @@ class AlarmStorage(context: Context) {
     fun unsaveAlarm(id: Int) {
         return runBlocking {
             val key = stringPreferencesKey("$PREFIX$id")
-            dataStore.edit { preferences -> preferences.remove(key) }
+            val snoozeKey = stringPreferencesKey("$SNOOZE_PREFIX$id")
+            dataStore.edit { preferences ->
+                preferences.remove(key)
+                // A stopped alarm is no longer owed, so any pending deferral for
+                // it is moot. Left behind, the marker would reappear on the next
+                // Alarm.init() and try to resurrect an alarm the user dismissed.
+                preferences.remove(snoozeKey)
+            }
         }
     }
 

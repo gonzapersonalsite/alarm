@@ -107,7 +107,7 @@ class NotificationHandler(private val context: Context) {
 
             // A label without a duration describes an action the platform
             // cannot perform, so both are required before it is offered.
-            if (it.snoozeButton != null && canSnooze) {
+            if (it.androidSnoozeButton != null && canSnooze) {
                 val snoozeIntent = Intent(context, AlarmReceiver::class.java).apply {
                     action = AlarmReceiver.ACTION_ALARM_SNOOZE
                     putExtra("id", alarmId)
@@ -118,7 +118,7 @@ class NotificationHandler(private val context: Context) {
                     snoozeIntent,
                     PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
                 )
-                notificationBuilder.addAction(0, it.snoozeButton, snoozePendingIntent)
+                notificationBuilder.addAction(0, it.androidSnoozeButton, snoozePendingIntent)
             }
 
             if (it.iconColor != null) {

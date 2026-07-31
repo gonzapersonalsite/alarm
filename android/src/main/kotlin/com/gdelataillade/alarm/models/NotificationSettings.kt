@@ -12,7 +12,7 @@ data class NotificationSettings(
     val icon: String? = null,
     val iconColor: Int? = null,
     val keepNotificationAfterAlarmEnds: Boolean = false,
-    val snoozeButton: String? = null,
+    val androidSnoozeButton: String? = null,
 ) {
     companion object {
         fun fromWire(e: NotificationSettingsWire): NotificationSettings {
@@ -33,7 +33,7 @@ data class NotificationSettings(
                 e.icon,
                 iconColor,
                 e.keepNotificationAfterAlarmEnds,
-                e.snoozeButton,
+                e.androidSnoozeButton,
             )
         }
     }

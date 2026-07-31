@@ -16,7 +16,7 @@ class NotificationSettings extends Equatable {
     required this.title,
     required this.body,
     this.stopButton,
-    this.snoozeButton,
+    this.androidSnoozeButton,
     this.icon,
     this.iconColor,
     this.keepNotificationAfterAlarmEnds = false,
@@ -45,7 +45,7 @@ class NotificationSettings extends Equatable {
   /// can perform.
   ///
   /// If null, button will not be shown. Null by default.
-  final String? snoozeButton;
+  final String? androidSnoozeButton;
 
   /// The icon to display on the notification.
   ///
@@ -103,7 +103,7 @@ class NotificationSettings extends Equatable {
         title: title,
         body: body,
         stopButton: stopButton,
-        snoozeButton: snoozeButton,
+        androidSnoozeButton: androidSnoozeButton,
         icon: icon,
         iconColorAlpha: iconColor?.a,
         iconColorRed: iconColor?.r,
@@ -118,7 +118,7 @@ class NotificationSettings extends Equatable {
     String? title,
     String? body,
     String? stopButton,
-    String? snoozeButton,
+    String? androidSnoozeButton,
     String? icon,
     Color? iconColor,
     bool? keepNotificationAfterAlarmEnds,
@@ -127,7 +127,7 @@ class NotificationSettings extends Equatable {
       title: title ?? this.title,
       body: body ?? this.body,
       stopButton: stopButton ?? this.stopButton,
-      snoozeButton: snoozeButton ?? this.snoozeButton,
+      androidSnoozeButton: androidSnoozeButton ?? this.androidSnoozeButton,
       icon: icon ?? this.icon,
       iconColor: iconColor ?? this.iconColor,
       keepNotificationAfterAlarmEnds:
@@ -140,7 +140,7 @@ class NotificationSettings extends Equatable {
         title,
         body,
         stopButton,
-        snoozeButton,
+        androidSnoozeButton,
         icon,
         iconColor,
         keepNotificationAfterAlarmEnds,
