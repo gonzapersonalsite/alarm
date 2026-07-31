@@ -389,7 +389,7 @@ class AlarmService : Service() {
         }
 
         val nextRingAt =
-            System.currentTimeMillis() + settings.androidSnoozeDurationSeconds!! * 1000L
+            System.currentTimeMillis() + settings.androidSnoozeDurationMillis!!
 
         // Silence first: an alarm that is both ringing and scheduled would
         // keep the foreground service alive over a deferral.

@@ -240,7 +240,7 @@ class AlarmSettings extends Equatable {
         iOSBackgroundAudio: iOSBackgroundAudio,
         androidStopAlarmOnTermination: androidStopAlarmOnTermination,
         preferConnectedAudioDevice: preferConnectedAudioDevice,
-        androidSnoozeDurationSeconds: androidSnoozeDuration?.inSeconds,
+        androidSnoozeDurationMillis: androidSnoozeDuration?.inMilliseconds,
       );
 
   /// Creates a copy of `AlarmSettings` but with the given fields replaced with

@@ -25,6 +25,10 @@ class AlarmStorage(context: Context) {
         private const val TAG = "AlarmStorage"
         private const val PREFIX = "__alarm_id__"
         private const val SNOOZE_PREFIX = "__snoozed_alarm_id__"
+
+        // How long past its ring time a marker Dart never applied is kept
+        // before being discarded as unapplicable.
+        private const val SNOOZE_MARKER_TTL_MILLIS = 7L * 24 * 60 * 60 * 1000
     }
 
     private val dataStore = context.dataStore
@@ -95,30 +99,72 @@ class AlarmStorage(context: Context) {
         }
     }
 
-    /** Reads and clears every unreported snooze, keyed by alarm id. */
-    fun takeSnoozes(): Map<Int, Long> {
+    /**
+     * Reads every pending snooze marker, keyed by alarm id.
+     *
+     * Non-destructive on purpose: a marker survives until [acknowledgeSnooze]
+     * confirms Dart durably applied it, so a read followed by a crash loses
+     * nothing. Markers older than [SNOOZE_MARKER_TTL_MILLIS] are dropped, so a
+     * marker Dart can never apply cannot accumulate forever.
+     */
+    fun getPendingSnoozes(): Map<Int, Long> {
         return runBlocking {
             val stored = dataStore.data.map { prefs ->
                 prefs.asMap().filterKeys { it.name.startsWith(SNOOZE_PREFIX) }
             }.first()
 
             val snoozes = mutableMapOf<Int, Long>()
+            val expired = mutableListOf<Preferences.Key<*>>()
+            val now = System.currentTimeMillis()
             stored.forEach { (key, value) ->
                 val id = key.name.removePrefix(SNOOZE_PREFIX).toIntOrNull()
                 val nextRingAt = (value as? String)?.toLongOrNull()
                 if (id == null || nextRingAt == null) {
-                    Log.w(TAG, "Skipping unreadable snooze with key: ${key.name}")
+                    Log.w(TAG, "Dropping unreadable snooze marker: ${key.name}")
+                    expired.add(key)
+                } else if (now - nextRingAt > SNOOZE_MARKER_TTL_MILLIS) {
+                    Log.w(TAG, "Dropping snooze marker for $id, stale since $nextRingAt.")
+                    expired.add(key)
                 } else {
                     snoozes[id] = nextRingAt
                 }
             }
 
-            if (stored.isNotEmpty()) {
+            if (expired.isNotEmpty()) {
                 dataStore.edit { preferences ->
-                    stored.keys.forEach { preferences.remove(it) }
+                    expired.forEach { preferences.remove(it) }
                 }
             }
             snoozes
+        }
+    }
+
+    /**
+     * Drops the marker for [id], but only if it still records exactly
+     * [nextRingAtMillis].
+     *
+     * Comparing the timestamp as well as the id means a late acknowledgement
+     * for an earlier snooze cannot discard a newer one taken for the same alarm
+     * in the meantime.
+     */
+    fun acknowledgeSnooze(id: Int, nextRingAtMillis: Long) {
+        return runBlocking {
+            val key = stringPreferencesKey("$SNOOZE_PREFIX$id")
+            dataStore.edit { preferences ->
+                if (preferences[key] == nextRingAtMillis.toString()) {
+                    preferences.remove(key)
+                } else {
+                    Log.d(TAG, "Not acknowledging snooze $id: marker moved on.")
+                }
+            }
+        }
+    }
+
+    /** Removes any pending snooze marker for [id], whatever it records. */
+    fun clearSnooze(id: Int) {
+        return runBlocking {
+            val key = stringPreferencesKey("$SNOOZE_PREFIX$id")
+            dataStore.edit { preferences -> preferences.remove(key) }
         }
     }
 }

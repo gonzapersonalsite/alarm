@@ -122,11 +122,14 @@ data class AlarmSettingsWire (
   val androidStopAlarmOnTermination: Boolean,
   val preferConnectedAudioDevice: Boolean,
   /**
-   * How long the snooze action defers the alarm, in seconds.
+   * How long the snooze action defers the alarm, in milliseconds.
    *
-   * Null, or anything below one, offers no snooze. Android only.
+   * Null, or anything below one minute, offers no snooze. The floor exists
+   * because Android scheduling falls back to a plain `Handler.postDelayed`
+   * below a few seconds, which survives neither process death nor
+   * cancellation. Android only.
    */
-  val androidSnoozeDurationSeconds: Long? = null
+  val androidSnoozeDurationMillis: Long? = null
 )
  {
   companion object {
@@ -145,8 +148,8 @@ data class AlarmSettingsWire (
       val iOSBackgroundAudio = pigeonVar_list[11] as Boolean
       val androidStopAlarmOnTermination = pigeonVar_list[12] as Boolean
       val preferConnectedAudioDevice = pigeonVar_list[13] as Boolean
-      val androidSnoozeDurationSeconds = pigeonVar_list[14] as Long?
-      return AlarmSettingsWire(id, millisecondsSinceEpoch, assetAudioPath, volumeSettings, notificationSettings, loopAudio, vibrate, warningNotificationOnKill, androidFullScreenIntent, allowAlarmOverlap, allowSameSecondScheduling, iOSBackgroundAudio, androidStopAlarmOnTermination, preferConnectedAudioDevice, androidSnoozeDurationSeconds)
+      val androidSnoozeDurationMillis = pigeonVar_list[14] as Long?
+      return AlarmSettingsWire(id, millisecondsSinceEpoch, assetAudioPath, volumeSettings, notificationSettings, loopAudio, vibrate, warningNotificationOnKill, androidFullScreenIntent, allowAlarmOverlap, allowSameSecondScheduling, iOSBackgroundAudio, androidStopAlarmOnTermination, preferConnectedAudioDevice, androidSnoozeDurationMillis)
     }
   }
   fun toList(): List<Any?> {
@@ -165,7 +168,7 @@ data class AlarmSettingsWire (
       iOSBackgroundAudio,
       androidStopAlarmOnTermination,
       preferConnectedAudioDevice,
-      androidSnoozeDurationSeconds,
+      androidSnoozeDurationMillis,
     )
   }
   override fun equals(other: Any?): Boolean {
@@ -265,9 +268,9 @@ data class NotificationSettingsWire (
   /**
    * Label for the snooze action. Null omits the action.
    *
-   * Only shown when [AlarmSettingsWire.androidSnoozeDurationSeconds] also
-   * gives it a duration; a label alone describes nothing the platform can
-   * perform. Android only.
+   * Only shown when [AlarmSettingsWire.androidSnoozeDurationMillis] also
+   * gives it a usable duration; a label alone describes nothing the platform
+   * can perform. Android only.
    */
   val snoozeButton: String? = null
 )
@@ -314,20 +317,20 @@ data class NotificationSettingsWire (
 }
 
 /**
- * One deferral taken on the host side.
+ * A snooze the host recorded and Dart has not yet applied.
  *
  * Generated class from Pigeon that represents data sent in messages.
  */
-data class SnoozedAlarmWire (
+data class PendingSnoozeWire (
   val alarmId: Long,
   val millisecondsSinceEpoch: Long
 )
  {
   companion object {
-    fun fromList(pigeonVar_list: List<Any?>): SnoozedAlarmWire {
+    fun fromList(pigeonVar_list: List<Any?>): PendingSnoozeWire {
       val alarmId = pigeonVar_list[0] as Long
       val millisecondsSinceEpoch = pigeonVar_list[1] as Long
-      return SnoozedAlarmWire(alarmId, millisecondsSinceEpoch)
+      return PendingSnoozeWire(alarmId, millisecondsSinceEpoch)
     }
   }
   fun toList(): List<Any?> {
@@ -337,7 +340,7 @@ data class SnoozedAlarmWire (
     )
   }
   override fun equals(other: Any?): Boolean {
-    if (other !is SnoozedAlarmWire) {
+    if (other !is PendingSnoozeWire) {
       return false
     }
     if (this === other) {
@@ -377,7 +380,7 @@ private open class FlutterBindingsPigeonCodec : StandardMessageCodec() {
       }
       134.toByte() -> {
         return (readValue(buffer) as? List<Any?>)?.let {
-          SnoozedAlarmWire.fromList(it)
+          PendingSnoozeWire.fromList(it)
         }
       }
       else -> super.readValueOfType(type, buffer)
@@ -405,7 +408,7 @@ private open class FlutterBindingsPigeonCodec : StandardMessageCodec() {
         stream.write(133)
         writeValue(stream, value.toList())
       }
-      is SnoozedAlarmWire -> {
+      is PendingSnoozeWire -> {
         stream.write(134)
         writeValue(stream, value.toList())
       }
@@ -424,16 +427,27 @@ interface AlarmApi {
   fun setWarningNotificationOnKill(title: String, body: String)
   fun disableWarningNotificationOnKill()
   /**
-   * Drains the snoozes taken on the host side that no Dart isolate has
-   * observed yet.
+   * Lists snoozes the host has recorded but Dart has not yet applied.
    *
-   * A snooze is normally taken with no engine running: the notification and
-   * the ringing screen are native, and a full screen intent starts the
-   * process without starting Flutter. [AlarmTriggerApi.alarmSnoozed] reaches
-   * nobody in that case, so the deferral is held until an isolate collects
-   * it. Draining is destructive; a collected snooze is not reported twice.
+   * A snooze is normally taken with no engine running: the notification is
+   * native and a full screen intent starts the process without starting
+   * Flutter, so [AlarmTriggerApi.alarmSnoozed] reaches nobody. The host holds
+   * a marker until Dart has durably applied it.
+   *
+   * Reading is **not** destructive — the marker survives until
+   * [acknowledgeSnooze] confirms Dart wrote the new time. A read that is
+   * followed by a crash therefore loses nothing.
    */
-  fun takeUnreportedSnoozes(callback: (Result<List<SnoozedAlarmWire>>) -> Unit)
+  fun getPendingSnoozes(callback: (Result<List<PendingSnoozeWire>>) -> Unit)
+  /**
+   * Drops the marker for [alarmId], but only if it still records exactly
+   * [nextRingAtMillis].
+   *
+   * Matching on the timestamp as well as the id means a late acknowledgement
+   * for an earlier snooze cannot discard a newer one taken for the same
+   * alarm in the meantime.
+   */
+  fun acknowledgeSnooze(alarmId: Long, nextRingAtMillis: Long, callback: (Result<Unit>) -> Unit)
 
   companion object {
     /** The codec used by AlarmApi. */
@@ -552,16 +566,36 @@ interface AlarmApi {
         }
       }
       run {
-        val channel = BasicMessageChannel<Any?>(binaryMessenger, "dev.flutter.pigeon.alarm.AlarmApi.takeUnreportedSnoozes$separatedMessageChannelSuffix", codec)
+        val channel = BasicMessageChannel<Any?>(binaryMessenger, "dev.flutter.pigeon.alarm.AlarmApi.getPendingSnoozes$separatedMessageChannelSuffix", codec)
         if (api != null) {
           channel.setMessageHandler { _, reply ->
-            api.takeUnreportedSnoozes{ result: Result<List<SnoozedAlarmWire>> ->
+            api.getPendingSnoozes{ result: Result<List<PendingSnoozeWire>> ->
               val error = result.exceptionOrNull()
               if (error != null) {
                 reply.reply(FlutterBindingsPigeonUtils.wrapError(error))
               } else {
                 val data = result.getOrNull()
                 reply.reply(FlutterBindingsPigeonUtils.wrapResult(data))
+              }
+            }
+          }
+        } else {
+          channel.setMessageHandler(null)
+        }
+      }
+      run {
+        val channel = BasicMessageChannel<Any?>(binaryMessenger, "dev.flutter.pigeon.alarm.AlarmApi.acknowledgeSnooze$separatedMessageChannelSuffix", codec)
+        if (api != null) {
+          channel.setMessageHandler { message, reply ->
+            val args = message as List<Any?>
+            val alarmIdArg = args[0] as Long
+            val nextRingAtMillisArg = args[1] as Long
+            api.acknowledgeSnooze(alarmIdArg, nextRingAtMillisArg) { result: Result<Unit> ->
+              val error = result.exceptionOrNull()
+              if (error != null) {
+                reply.reply(FlutterBindingsPigeonUtils.wrapError(error))
+              } else {
+                reply.reply(FlutterBindingsPigeonUtils.wrapResult(null))
               }
             }
           }

@@ -55,12 +55,21 @@ public class AlarmApiImpl: NSObject, AlarmApi {
             details: nil)
     }
 
-    /// Snoozing is an Android-only capability, so there is never anything
-    /// unreported here.
-    func takeUnreportedSnoozes(
-        completion: @escaping (Result<[SnoozedAlarmWire], Error>) -> Void
+    /// Snoozing is an Android-only capability, so there is never a marker here.
+    func getPendingSnoozes(
+        completion: @escaping (Result<[PendingSnoozeWire], Error>) -> Void
     ) {
         completion(.success([]))
+    }
+
+    /// No markers exist on iOS, so acknowledging one is a no-op rather than an
+    /// error: Dart calls this unconditionally after applying a snooze.
+    func acknowledgeSnooze(
+        alarmId: Int64,
+        nextRingAtMillis: Int64,
+        completion: @escaping (Result<Void, Error>) -> Void
+    ) {
+        completion(.success(()))
     }
 
     @MainActor

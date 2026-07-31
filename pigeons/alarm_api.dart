@@ -31,7 +31,7 @@ class AlarmSettingsWire {
     required this.iOSBackgroundAudio,
     required this.androidStopAlarmOnTermination,
     required this.preferConnectedAudioDevice,
-    required this.androidSnoozeDurationSeconds,
+    required this.androidSnoozeDurationMillis,
   });
 
   final int id;
@@ -49,10 +49,13 @@ class AlarmSettingsWire {
   final bool androidStopAlarmOnTermination;
   final bool preferConnectedAudioDevice;
 
-  /// How long the snooze action defers the alarm, in seconds.
+  /// How long the snooze action defers the alarm, in milliseconds.
   ///
-  /// Null, or anything below one, offers no snooze. Android only.
-  final int? androidSnoozeDurationSeconds;
+  /// Null, or anything below one minute, offers no snooze. The floor exists
+  /// because Android scheduling falls back to a plain `Handler.postDelayed`
+  /// below a few seconds, which survives neither process death nor
+  /// cancellation. Android only.
+  final int? androidSnoozeDurationMillis;
 }
 
 class VolumeSettingsWire {
@@ -107,9 +110,9 @@ class NotificationSettingsWire {
 
   /// Label for the snooze action. Null omits the action.
   ///
-  /// Only shown when [AlarmSettingsWire.androidSnoozeDurationSeconds] also
-  /// gives it a duration; a label alone describes nothing the platform can
-  /// perform. Android only.
+  /// Only shown when [AlarmSettingsWire.androidSnoozeDurationMillis] also
+  /// gives it a usable duration; a label alone describes nothing the platform
+  /// can perform. Android only.
   final String? snoozeButton;
 }
 
@@ -153,21 +156,35 @@ abstract class AlarmApi {
 
   void disableWarningNotificationOnKill();
 
-  /// Drains the snoozes taken on the host side that no Dart isolate has
-  /// observed yet.
+  /// Lists snoozes the host has recorded but Dart has not yet applied.
   ///
-  /// A snooze is normally taken with no engine running: the notification and
-  /// the ringing screen are native, and a full screen intent starts the
-  /// process without starting Flutter. [AlarmTriggerApi.alarmSnoozed] reaches
-  /// nobody in that case, so the deferral is held until an isolate collects
-  /// it. Draining is destructive; a collected snooze is not reported twice.
+  /// A snooze is normally taken with no engine running: the notification is
+  /// native and a full screen intent starts the process without starting
+  /// Flutter, so [AlarmTriggerApi.alarmSnoozed] reaches nobody. The host holds
+  /// a marker until Dart has durably applied it.
+  ///
+  /// Reading is **not** destructive — the marker survives until
+  /// [acknowledgeSnooze] confirms Dart wrote the new time. A read that is
+  /// followed by a crash therefore loses nothing.
   @async
-  List<SnoozedAlarmWire> takeUnreportedSnoozes();
+  List<PendingSnoozeWire> getPendingSnoozes();
+
+  /// Drops the marker for [alarmId], but only if it still records exactly
+  /// [nextRingAtMillis].
+  ///
+  /// Matching on the timestamp as well as the id means a late acknowledgement
+  /// for an earlier snooze cannot discard a newer one taken for the same
+  /// alarm in the meantime.
+  @async
+  void acknowledgeSnooze({
+    required int alarmId,
+    required int nextRingAtMillis,
+  });
 }
 
-/// One deferral taken on the host side.
-class SnoozedAlarmWire {
-  const SnoozedAlarmWire({
+/// A snooze the host recorded and Dart has not yet applied.
+class PendingSnoozeWire {
+  const PendingSnoozeWire({
     required this.alarmId,
     required this.millisecondsSinceEpoch,
   });

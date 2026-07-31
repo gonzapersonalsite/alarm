@@ -9,7 +9,13 @@ typedef AlarmRangCallback = void Function(AlarmSettings alarm);
 typedef AlarmStoppedCallback = void Function(int alarmId);
 
 /// Callback that is called when an alarm is deferred on the host side.
-typedef AlarmSnoozedCallback = void Function(int alarmId, DateTime nextRingAt);
+///
+/// Returns a future the host awaits before treating the deferral as observed,
+/// so it must not complete until the new time is durably stored.
+typedef AlarmSnoozedCallback = Future<void> Function(
+  int alarmId,
+  DateTime nextRingAt,
+);
 
 /// Implements the API that handles calls coming from the host platform.
 class AlarmTriggerApiImpl extends AlarmTriggerApi {
@@ -73,6 +79,9 @@ class AlarmTriggerApiImpl extends AlarmTriggerApi {
     final nextRingAt =
         DateTime.fromMillisecondsSinceEpoch(millisecondsSinceEpoch);
     _log.info('Alarm with id $alarmId snoozed until $nextRingAt.');
-    _alarmSnoozed(alarmId, nextRingAt);
+    // Awaited so the reply to the host is sent only once Dart has persisted
+    // the new time. The host uses that reply to decide whether it can drop its
+    // own reconciliation marker.
+    await _alarmSnoozed(alarmId, nextRingAt);
   }
 }
