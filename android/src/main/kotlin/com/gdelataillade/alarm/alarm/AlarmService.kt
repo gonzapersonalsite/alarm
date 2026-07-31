@@ -32,6 +32,26 @@ class AlarmService : Service() {
         // foreground without a real alarm notification to show.
         private const val PLACEHOLDER_NOTIFICATION_ID = 973_422
 
+        /**
+         * Action an application declares on the activity that should present a
+         * ringing alarm.
+         *
+         * Declaring one takes ownership of the alarm surface, so it can be a
+         * dedicated activity in its own task that shows over the lock screen
+         * and finishes when the alarm is resolved, the way platform clock
+         * applications behave. Without it the launcher activity is opened,
+         * which is the existing behaviour.
+         */
+        const val ACTION_RING = "com.gdelataillade.alarm.action.RING"
+
+        /** Alarm id, so the activity can act on the alarm it presents. */
+        const val EXTRA_ALARM_ID = "alarmId"
+
+        /** Notification title, body and stop label, already localized. */
+        const val EXTRA_ALARM_TITLE = "alarmTitle"
+        const val EXTRA_ALARM_BODY = "alarmBody"
+        const val EXTRA_ALARM_STOP_LABEL = "alarmStopLabel"
+
         var instance: AlarmService? = null
 
         @JvmStatic
@@ -124,14 +144,7 @@ class AlarmService : Service() {
 
         // Build the notification
         val notificationHandler = NotificationHandler(this)
-        val appIntent =
-            applicationContext.packageManager.getLaunchIntentForPackage(applicationContext.packageName)
-        val pendingIntent = PendingIntent.getActivity(
-            this,
-            id,
-            appIntent,
-            PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
-        )
+        val pendingIntent = ringPendingIntent(id, alarmSettings)
 
         val notification = notificationHandler.buildNotification(
             alarmSettings.notificationSettings,
@@ -234,6 +247,45 @@ class AlarmService : Service() {
                 Log.d(TAG, "Keeping the warning notification on because there are other pending alarms.")
             }
         }
+    }
+
+    /**
+     * The activity a full-screen intent opens for [id].
+     *
+     * Everything the surface needs to present the alarm travels in the intent,
+     * so it can render without a Flutter engine. That is the normal case: the
+     * process is started by the full-screen intent itself, which does not
+     * start Flutter.
+     */
+    private fun ringPendingIntent(id: Int, alarmSettings: AlarmSettings): PendingIntent {
+        val ringIntent = resolveRingIntent()?.apply {
+            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+            putExtra(EXTRA_ALARM_ID, id)
+            putExtra(EXTRA_ALARM_TITLE, alarmSettings.notificationSettings.title)
+            putExtra(EXTRA_ALARM_BODY, alarmSettings.notificationSettings.body)
+            putExtra(EXTRA_ALARM_STOP_LABEL, alarmSettings.notificationSettings.stopButton)
+        } ?: applicationContext.packageManager
+            .getLaunchIntentForPackage(applicationContext.packageName)
+            ?: Intent()
+
+        return PendingIntent.getActivity(
+            this,
+            id,
+            ringIntent,
+            PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
+        )
+    }
+
+    /** The application's own alarm activity, or null when it declares none. */
+    private fun resolveRingIntent(): Intent? {
+        val intent = Intent(ACTION_RING).setPackage(applicationContext.packageName)
+        val resolved = applicationContext.packageManager
+            .queryIntentActivities(intent, 0)
+            .firstOrNull() ?: return null
+        return intent.setClassName(
+            resolved.activityInfo.packageName,
+            resolved.activityInfo.name
+        )
     }
 
     override fun onTaskRemoved(rootIntent: Intent?) {
