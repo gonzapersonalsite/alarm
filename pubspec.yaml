@@ -23,7 +23,10 @@ dev_dependencies:
   build_runner: ^2.4.15
   flutter_test:
     sdk: flutter
-  json_serializable: ^6.9.5
+  # Pinned below 6.10.0: that release emits null-aware elements
+  # (`'key': ?instance.field`) with no language-version gate, which the
+  # `sdk: ">=3.0.0"` floor below rejects at generation time.
+  json_serializable: ">=6.9.5 <6.10.0"
   pigeon: ^25.3.1
   very_good_analysis: ^7.0.0
 

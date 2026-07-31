@@ -15,12 +15,12 @@ AlarmSettings _$AlarmSettingsFromJson(Map<String, dynamic> json) =>
           id: $checkedConvert('id', (v) => (v as num).toInt()),
           dateTime:
               $checkedConvert('dateTime', (v) => DateTime.parse(v as String)),
-          assetAudioPath:
-              $checkedConvert('assetAudioPath', (v) => v as String?),
           volumeSettings: $checkedConvert('volumeSettings',
               (v) => VolumeSettings.fromJson(v as Map<String, dynamic>)),
           notificationSettings: $checkedConvert('notificationSettings',
               (v) => NotificationSettings.fromJson(v as Map<String, dynamic>)),
+          assetAudioPath:
+              $checkedConvert('assetAudioPath', (v) => v as String?),
           loopAudio: $checkedConvert('loopAudio', (v) => v as bool? ?? true),
           vibrate: $checkedConvert('vibrate', (v) => v as bool? ?? true),
           warningNotificationOnKill: $checkedConvert(
@@ -29,8 +29,8 @@ AlarmSettings _$AlarmSettingsFromJson(Map<String, dynamic> json) =>
               'androidFullScreenIntent', (v) => v as bool? ?? true),
           allowAlarmOverlap:
               $checkedConvert('allowAlarmOverlap', (v) => v as bool? ?? false),
-          allowSameSecondScheduling: $checkedConvert('allowSameSecondScheduling',
-              (v) => v as bool? ?? false),
+          allowSameSecondScheduling: $checkedConvert(
+              'allowSameSecondScheduling', (v) => v as bool? ?? false),
           iOSBackgroundAudio:
               $checkedConvert('iOSBackgroundAudio', (v) => v as bool? ?? true),
           androidStopAlarmOnTermination: $checkedConvert(

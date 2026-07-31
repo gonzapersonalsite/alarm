@@ -79,6 +79,7 @@ class NotificationSettings extends Equatable {
   ///
   /// If `null`, the icon will have a default color.
   /// Defaults to `null`.
+  @_ColorJsonConverter()
   final Color? iconColor;
 
   /// Keeps the notification banner visible even after the alarm sound ends.
@@ -144,4 +145,20 @@ class NotificationSettings extends Equatable {
         iconColor,
         keepNotificationAfterAlarmEnds,
       ];
+}
+
+/// Encodes a [Color] as its 32-bit ARGB integer.
+///
+/// `Color` has no JSON representation of its own, so without this the
+/// generator cannot build `fromJson` for [NotificationSettings.iconColor].
+/// The integer form matches what every previous plugin version wrote, so
+/// alarms persisted before this converter existed still parse.
+class _ColorJsonConverter implements JsonConverter<Color?, int?> {
+  const _ColorJsonConverter();
+
+  @override
+  Color? fromJson(int? json) => json == null ? null : Color(json);
+
+  @override
+  int? toJson(Color? object) => object?.toARGB32();
 }
