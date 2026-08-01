@@ -186,6 +186,33 @@ void main() {
       expect(settings.copyWith(payload: () => 'new').payload, 'new');
       expect(settings.copyWith(payload: () => null).payload, isNull);
     });
+
+    test('androidSnoozeDuration can be set and cleared through the callback',
+        () {
+      final settings = buildSettings(
+        snoozeDuration: const Duration(minutes: 9),
+        snoozeButton: 'Snooze',
+      );
+
+      expect(
+        settings.copyWith().androidSnoozeDuration,
+        const Duration(minutes: 9),
+      );
+      expect(
+        settings
+            .copyWith(
+              androidSnoozeDuration: () => const Duration(minutes: 5),
+            )
+            .androidSnoozeDuration,
+        const Duration(minutes: 5),
+      );
+      expect(
+        settings
+            .copyWith(androidSnoozeDuration: () => null)
+            .androidSnoozeDuration,
+        isNull,
+      );
+    });
   });
 
   group('AlarmSettings snooze JSON', () {

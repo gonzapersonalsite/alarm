@@ -84,6 +84,28 @@ void main() {
     });
   });
 
+  group('NotificationSettings snooze copyWith', () {
+    test('androidSnoozeButton can be set and cleared through the callback', () {
+      const settings = NotificationSettings(
+        title: 'Title',
+        body: 'Body',
+        androidSnoozeButton: 'Snooze',
+      );
+
+      expect(settings.copyWith().androidSnoozeButton, 'Snooze');
+      expect(
+        settings
+            .copyWith(androidSnoozeButton: () => 'Later')
+            .androidSnoozeButton,
+        'Later',
+      );
+      expect(
+        settings.copyWith(androidSnoozeButton: () => null).androidSnoozeButton,
+        isNull,
+      );
+    });
+  });
+
   group('NotificationSettings copyWith', () {
     test('replaces only the provided fields', () {
       const settings = NotificationSettings(

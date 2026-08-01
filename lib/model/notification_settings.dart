@@ -118,7 +118,7 @@ class NotificationSettings extends Equatable {
     String? title,
     String? body,
     String? stopButton,
-    String? androidSnoozeButton,
+    String? Function()? androidSnoozeButton,
     String? icon,
     Color? iconColor,
     bool? keepNotificationAfterAlarmEnds,
@@ -127,7 +127,11 @@ class NotificationSettings extends Equatable {
       title: title ?? this.title,
       body: body ?? this.body,
       stopButton: stopButton ?? this.stopButton,
-      androidSnoozeButton: androidSnoozeButton ?? this.androidSnoozeButton,
+      // Wrapped so a caller can remove the snooze action; the older nullable
+      // fields keep their existing signatures for compatibility.
+      androidSnoozeButton: androidSnoozeButton != null
+          ? androidSnoozeButton()
+          : this.androidSnoozeButton,
       icon: icon ?? this.icon,
       iconColor: iconColor ?? this.iconColor,
       keepNotificationAfterAlarmEnds:

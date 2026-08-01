@@ -227,6 +227,29 @@ void main() {
       expect(Alarm.scheduled.value.containsId(11), isFalse);
     });
 
+    test('rebuilds state for a marker that was already applied', () async {
+      // The crash window: Dart persisted the shifted time, then the process
+      // died before native could acknowledge. The marker survives and storage
+      // already agrees with it, so there is nothing to write — but a fresh
+      // isolate still has to surface the alarm.
+      final nextRingAt = DateTime.now().add(const Duration(minutes: 7));
+      await AlarmStorage.saveAlarm(buildAlarm(99, nextRingAt));
+      host.pending.add(
+        PendingSnoozeWire(
+          alarmId: 99,
+          millisecondsSinceEpoch: nextRingAt.millisecondsSinceEpoch,
+        ),
+      );
+
+      await Alarm.init();
+
+      expect(
+        Alarm.scheduled.value.containsId(99),
+        isTrue,
+        reason: 'an already-applied marker must not leave the alarm invisible',
+      );
+    });
+
     test('an alarm genuinely missed is still stopped', () async {
       // Guards the B1 fix against over-correcting: with no marker, a past
       // alarm that is not ringing should still be cleaned up.

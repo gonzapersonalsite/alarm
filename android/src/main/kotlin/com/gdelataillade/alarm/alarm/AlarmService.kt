@@ -20,7 +20,7 @@ import com.gdelataillade.alarm.models.AlarmSettings
 import com.gdelataillade.alarm.models.NotificationSettings
 import com.gdelataillade.alarm.services.AlarmRingingLiveData
 import com.gdelataillade.alarm.services.NotificationHandler
-import com.gdelataillade.alarm.services.NotificationOnKillService
+import com.gdelataillade.alarm.services.WarningNotificationState
 import com.gdelataillade.alarm.services.SnoozeCoordinator
 import io.flutter.Log
 import kotlinx.serialization.json.Json
@@ -250,9 +250,10 @@ class AlarmService : Service() {
         if (storage != null) {
             val storedAlarms = storage.getSavedAlarms()
             if (storedAlarms.isEmpty() || storedAlarms.all { it.id == id }) {
-                val serviceIntent = Intent(this, NotificationOnKillService::class.java)
-                // If the service isn't running this call will be ignored.
-                this.stopService(serviceIntent)
+                // An alarm that is currently ringing does not need a kill
+                // warning. If it is snoozed rather than stopped, rescheduling
+                // restores the warning via WarningNotificationState.refresh.
+                WarningNotificationState.disable(this)
                 Log.d(TAG, "Turning off the warning notification.")
             } else {
                 Log.d(TAG, "Keeping the warning notification on because there are other pending alarms.")

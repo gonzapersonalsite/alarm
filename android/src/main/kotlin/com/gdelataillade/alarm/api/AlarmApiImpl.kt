@@ -14,7 +14,7 @@ import com.gdelataillade.alarm.models.AlarmSettings
 import com.gdelataillade.alarm.services.AlarmScheduler
 import com.gdelataillade.alarm.services.AlarmStorage
 import com.gdelataillade.alarm.services.NotificationHandler
-import com.gdelataillade.alarm.services.NotificationOnKillService
+import com.gdelataillade.alarm.services.WarningNotificationState
 import io.flutter.Log
 
 class AlarmApiImpl(private val context: Context) : AlarmApi {
@@ -23,9 +23,6 @@ class AlarmApiImpl(private val context: Context) : AlarmApi {
     }
 
     private val alarmIds: MutableList<Int> = mutableListOf()
-    private var notificationOnKillTitle: String = "Your alarms may not ring"
-    private var notificationOnKillBody: String =
-        "You killed the app. Please reopen so your alarms can be rescheduled."
 
     override fun setAlarm(alarmSettings: AlarmSettingsWire, callback: (Result<Unit>) -> Unit) {
         setAlarm(AlarmSettings.fromWire(alarmSettings))
@@ -56,7 +53,7 @@ class AlarmApiImpl(private val context: Context) : AlarmApi {
 
         alarmIds.remove(id)
         AlarmStorage(context).unsaveAlarm(id)
-        updateWarningNotificationState()
+        WarningNotificationState.refresh(context)
 
         // If the service was running it is the responsibility of the AlarmService to send the stop
         // signal to Flutter.
@@ -99,16 +96,15 @@ class AlarmApiImpl(private val context: Context) : AlarmApi {
     }
 
     override fun setWarningNotificationOnKill(title: String, body: String) {
-        notificationOnKillTitle = title
-        notificationOnKillBody = body
+        WarningNotificationState.setText(context, title, body)
 
-        // Re-create if needed.
-        turnOffWarningNotificationOnKill(context)
-        updateWarningNotificationState()
+        // Re-create so the new text takes effect if it is already showing.
+        WarningNotificationState.disable(context)
+        WarningNotificationState.refresh(context)
     }
 
     override fun disableWarningNotificationOnKill() {
-        turnOffWarningNotificationOnKill(context)
+        WarningNotificationState.disable(context)
     }
 
     override fun getPendingSnoozes(callback: (Result<List<PendingSnoozeWire>>) -> Unit) {
@@ -143,40 +139,6 @@ class AlarmApiImpl(private val context: Context) : AlarmApi {
         // reuse them without also inheriting the stop-and-replace preamble
         // above, which would report the deferral to Flutter as a stop.
         AlarmScheduler.schedule(context, alarm)
-
-        updateWarningNotificationState()
     }
 
-    private fun updateWarningNotificationState() {
-        if (AlarmStorage(context).getSavedAlarms().any { it.warningNotificationOnKill } ) {
-            turnOnWarningNotificationOnKill(context)
-        } else {
-            turnOffWarningNotificationOnKill(context)
-        }
-    }
-
-    private fun turnOnWarningNotificationOnKill(context: Context) {
-        if (NotificationOnKillService.isRunning) {
-            Log.d(TAG, "Warning notification is already turned on.")
-            return
-        }
-
-        val serviceIntent = Intent(context, NotificationOnKillService::class.java)
-        serviceIntent.putExtra("title", notificationOnKillTitle)
-        serviceIntent.putExtra("body", notificationOnKillBody)
-
-        context.startService(serviceIntent)
-        Log.d(TAG, "Warning notification turned on.")
-    }
-
-    private fun turnOffWarningNotificationOnKill(context: Context) {
-        if (!NotificationOnKillService.isRunning) {
-            Log.d(TAG, "Warning notification is already turned off.")
-            return
-        }
-
-        val serviceIntent = Intent(context, NotificationOnKillService::class.java)
-        context.stopService(serviceIntent)
-        Log.d(TAG, "Warning notification turned off.")
-    }
 }

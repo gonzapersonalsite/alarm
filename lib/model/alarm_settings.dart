@@ -286,7 +286,7 @@ class AlarmSettings extends Equatable {
     bool? androidStopAlarmOnTermination,
     bool? preferConnectedAudioDevice,
     String? Function()? payload,
-    Duration? androidSnoozeDuration,
+    Duration? Function()? androidSnoozeDuration,
   }) {
     return AlarmSettings(
       id: id ?? this.id,
@@ -311,8 +311,11 @@ class AlarmSettings extends Equatable {
       // The function wrapper allows callers to clear the payload by
       // explicitly returning null.
       payload: payload != null ? payload() : this.payload,
-      androidSnoozeDuration:
-          androidSnoozeDuration ?? this.androidSnoozeDuration,
+      // Wrapped like payload so a caller can remove an existing snooze by
+      // returning null, which a plain nullable parameter cannot express.
+      androidSnoozeDuration: androidSnoozeDuration != null
+          ? androidSnoozeDuration()
+          : this.androidSnoozeDuration,
     );
   }
 

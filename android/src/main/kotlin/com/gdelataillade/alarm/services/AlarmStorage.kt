@@ -29,6 +29,9 @@ class AlarmStorage(context: Context) {
         // How long past its ring time a marker Dart never applied is kept
         // before being discarded as unapplicable.
         private const val SNOOZE_MARKER_TTL_MILLIS = 7L * 24 * 60 * 60 * 1000
+
+        private const val WARNING_TITLE_KEY = "notificationOnAppKillTitle"
+        private const val WARNING_BODY_KEY = "notificationOnAppKillBody"
     }
 
     private val dataStore = context.dataStore
@@ -164,6 +167,32 @@ class AlarmStorage(context: Context) {
                     Log.d(TAG, "Not acknowledging snooze $id: marker moved on.")
                 }
             }
+        }
+    }
+
+    /**
+     * Persists the kill-warning notification text.
+     *
+     * Held here rather than in memory because the context that has to show the
+     * warning is often not the one that was told what it should say — a snooze
+     * taken from a notification runs with no engine and no plugin instance.
+     */
+    fun saveWarningNotificationText(title: String, body: String) {
+        return runBlocking {
+            dataStore.edit { preferences ->
+                preferences[stringPreferencesKey(WARNING_TITLE_KEY)] = title
+                preferences[stringPreferencesKey(WARNING_BODY_KEY)] = body
+            }
+        }
+    }
+
+    /** The stored kill-warning text, or null when the app never set any. */
+    fun getWarningNotificationText(): Pair<String, String>? {
+        return runBlocking {
+            val prefs = dataStore.data.first()
+            val title = prefs[stringPreferencesKey(WARNING_TITLE_KEY)]
+            val body = prefs[stringPreferencesKey(WARNING_BODY_KEY)]
+            if (title == null || body == null) null else title to body
         }
     }
 

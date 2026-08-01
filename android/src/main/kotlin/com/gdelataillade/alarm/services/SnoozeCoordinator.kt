@@ -40,11 +40,17 @@ object SnoozeCoordinator {
         }
 
         val durationMillis = settings.androidSnoozeDurationMillis
-        if (!settings.canSnooze || durationMillis == null) {
-            // Defensive: the action is only added to the notification when the
-            // alarm can snooze. Leave it ringing rather than dismissing
-            // something the user did not ask to dismiss.
-            Log.w(TAG, "Cannot snooze $alarmId: no usable snooze duration.")
+        // Both halves are required, matching the notification action and the
+        // ring-activity label: an alarm that never offered snooze anywhere must
+        // not be deferrable by broadcasting the action directly. AlarmReceiver
+        // is exported, so this is the only thing enforcing that.
+        if (!settings.canSnooze ||
+            durationMillis == null ||
+            settings.notificationSettings.androidSnoozeButton == null
+        ) {
+            // Leave it ringing rather than dismissing something the user did
+            // not ask to dismiss.
+            Log.w(TAG, "Cannot snooze $alarmId: snooze is not configured for it.")
             return false
         }
 

@@ -39,9 +39,11 @@ class _ExampleAlarmHomeScreenState extends State<ExampleAlarmHomeScreen> {
     updateSubscription = Alarm.scheduled.listen((_) {
       unawaited(loadAlarms());
     });
-    // Android only. A snooze taken from the notification arrives here, and
-    // also arrives on the next Alarm.init() if it was taken while the app was
-    // not running.
+    // Android only. This receives snoozes taken while the app is running.
+    // A snooze taken with no engine is replayed during Alarm.init(), which
+    // happens before this widget exists -- see main() for that half. Either
+    // way the alarm list below refreshes, because Alarm.scheduled replays its
+    // latest value to new listeners.
     snoozeSubscription = Alarm.snoozed.listen(snoozed);
     notifications = Notifications();
   }

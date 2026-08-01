@@ -71,7 +71,7 @@ object AlarmScheduler {
             putExtra("alarmSettings", Json.encodeToString(alarm))
         }
 
-        return if (delayInMillis <= IMMEDIATE_THRESHOLD_MILLIS) {
+        val armed = if (delayInMillis <= IMMEDIATE_THRESHOLD_MILLIS) {
             Handler(Looper.getMainLooper()).postDelayed(
                 { context.sendBroadcast(intent) },
                 delayInMillis.coerceAtLeast(0L)
@@ -80,6 +80,13 @@ object AlarmScheduler {
         } else {
             armAlarmManager(context, intent, alarm.dateTime.time, alarm.id)
         }
+
+        // Every path that adds a pending alarm has to leave the kill warning
+        // consistent with it, including the snooze path, which reaches here
+        // without going through the plugin.
+        WarningNotificationState.refresh(context)
+
+        return armed
     }
 
     /**

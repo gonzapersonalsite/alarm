@@ -431,23 +431,36 @@ class Alarm {
       return false;
     }
 
-    // Already applied: leave state and streams untouched so the live report
-    // and a replayed marker for the same snooze collapse into one effect.
-    if (!alarm.dateTime.isBefore(nextRingAt)) return true;
+    // Whether this deferral is news. A marker replayed after the stored time
+    // already moved has nothing to write — but that is not the same as having
+    // nothing to do, because process-local state does not survive a restart.
+    final isNewDeferral = alarm.dateTime.isBefore(nextRingAt);
+    final snoozedAlarm =
+        isNewDeferral ? alarm.copyWith(dateTime: nextRingAt) : alarm;
 
-    final snoozedAlarm = alarm.copyWith(dateTime: nextRingAt);
-    await AlarmStorage.saveAlarm(snoozedAlarm);
+    if (isNewDeferral) await AlarmStorage.saveAlarm(snoozedAlarm);
 
-    // The fallback timer still holds the pre-snooze time. Left alone it fires
-    // immediately on the next foreground and reports a phantom ring, which
-    // would evict the snoozed alarm from [scheduled].
+    // Reconciled every time, including for an already-applied marker. A fresh
+    // isolate starts with empty sets and no timers whatever storage says, and
+    // [checkAlarm] skips the ids applied here, so this is the only thing that
+    // surfaces them. The fallback timer also still holds the pre-snooze time,
+    // and left alone it fires immediately on the next foreground and reports a
+    // phantom ring, which would evict the snoozed alarm from [scheduled].
     PlatformTimers.stopAlarm(alarmId);
     PlatformTimers.setAlarm(snoozedAlarm);
 
-    _ringing.add(_ringing.value.removeById(alarmId));
-    _scheduled.add(_scheduled.value.removeById(alarmId).add(snoozedAlarm));
-    _snoozed.add((id: alarmId, nextRingAt: nextRingAt));
-    updateStream.add(alarmId);
+    final nextRinging = _ringing.value.removeById(alarmId);
+    if (nextRinging != _ringing.value) _ringing.add(nextRinging);
+
+    final nextScheduled =
+        _scheduled.value.removeById(alarmId).add(snoozedAlarm);
+    if (nextScheduled != _scheduled.value) _scheduled.add(nextScheduled);
+
+    // Only a deferral that actually moved the alarm is an event.
+    if (isNewDeferral) {
+      _snoozed.add((id: alarmId, nextRingAt: nextRingAt));
+      updateStream.add(alarmId);
+    }
     return true;
   }
 
