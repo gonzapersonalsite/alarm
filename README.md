@@ -333,9 +333,31 @@ Declaring no such activity keeps the previous behaviour.
 
 #### Snooze
 
-Give an alarm a `androidSnoozeDuration` and its notification a
-`androidSnoozeButton` label, and the notification offers a snooze that stops the
-current ring and re-registers the alarm that far ahead.
+Give an alarm an `androidSnoozeDuration` and its notification an
+`androidSnoozeButton` label, and the notification offers a snooze that stops
+the current ring and re-registers the alarm that far ahead:
+
+```Dart
+AlarmSettings(
+  // ...
+  androidSnoozeDuration: const Duration(minutes: 9),
+  notificationSettings: const NotificationSettings(
+    title: 'Wake up',
+    body: '',
+    stopButton: 'Stop',
+    androidSnoozeButton: 'Snooze',
+  ),
+);
+```
+
+Both are required. A label with no duration describes an action the platform
+cannot perform, and a duration with no label gives the user no way to invoke
+it; either on its own logs a warning and offers no snooze.
+
+The duration must be at least `AlarmSettings.minSnoozeDuration` (one minute).
+Below that, Android stops scheduling through `AlarmManager` and falls back to
+an in-process timer that survives neither app termination nor cancellation, so
+a shorter snooze could be neither guaranteed nor undone.
 
 A snooze is reported as `Alarm.snoozed`, never as a stop, because the alarm is
 still owed:
@@ -346,12 +368,28 @@ Alarm.snoozed.listen((snooze) {
 });
 ```
 
+The alarm also leaves `Alarm.ringing` and reappears in `Alarm.scheduled` with
+its new `dateTime`, so an app that tracks alarm state through those streams
+needs no special handling.
+
 The button is normally pressed with **no Flutter engine running**, since the
-notification is native and the process may not be up. Each deferral is
-therefore recorded natively and replayed on the next `Alarm.init()`, so an app
-that tracks its own alarm state never misses one. Receiving both the live
-report and the replayed one is harmless: applying a snooze already applied
-changes nothing.
+notification is native and the process may not be up. The deferral is recorded
+natively and applied on the next `Alarm.init()`, before any reconciliation, so
+your app never sees an alarm whose time moved with nothing explaining why. The
+record is kept until Dart confirms it stored the new time, so a crash in
+between loses nothing, and applying the same deferral twice does nothing the
+second time.
+
+Snoozing an alarm that is not currently scheduled, or whose snooze time has
+already passed, is refused rather than applied — a deferral is never allowed to
+rewrite an alarm into the past, where the next reconciliation pass would delete
+it.
+
+One caveat, inherited from how overlapping alarms work generally: if a snoozed
+alarm comes back round while a different alarm is ringing and
+`allowAlarmOverlap` is false, it is discarded rather than queued. Set
+`allowAlarmOverlap` or `allowSameSecondScheduling` if your app can have several
+alarms due close together.
 
 ### iOS
 Keeps the app awake using a silent `AVAudioPlayer` until alarm rings. When in the background, it also uses `Background App Refresh` to periodically ensure the app is still active.
