@@ -10,6 +10,7 @@ void main() {
         title: 'Title',
         body: 'Body',
         stopButton: 'Stop',
+        androidSnoozeButton: 'Snooze',
         icon: 'notification_icon',
         iconColor: Color(0xFF862778),
         keepNotificationAfterAlarmEnds: true,
@@ -18,6 +19,27 @@ void main() {
       final restored = NotificationSettings.fromJson(settings.toJson());
 
       expect(restored, equals(settings));
+    });
+
+    test('encodes iconColor as its ARGB integer', () {
+      // Pinned because the JSON is persisted: alarms saved by earlier versions
+      // must keep parsing after iconColor moved to a JsonConverter.
+      const settings = NotificationSettings(
+        title: 'Title',
+        body: 'Body',
+        iconColor: Color(0xFF862778),
+      );
+
+      expect(settings.toJson()['iconColor'], 0xFF862778);
+      expect(
+        NotificationSettings.fromJson(const <String, dynamic>{
+          'title': 'Title',
+          'body': 'Body',
+          'iconColor': 0xFF862778,
+          'keepNotificationAfterAlarmEnds': false,
+        }).iconColor,
+        const Color(0xFF862778),
+      );
     });
 
     test('round trips with optional fields absent', () {

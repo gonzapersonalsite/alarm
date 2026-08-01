@@ -1,5 +1,6 @@
 import 'package:alarm/alarm.dart';
 import 'package:alarm/src/generated/platform_bindings.g.dart';
+import 'package:flutter/foundation.dart';
 import 'package:logging/logging.dart';
 
 /// Callback that is called when an alarm starts ringing.
@@ -40,6 +41,14 @@ class AlarmTriggerApiImpl extends AlarmTriggerApi {
   final AlarmStoppedCallback _alarmStopped;
 
   final AlarmSnoozedCallback _alarmSnoozed;
+
+  /// Forgets the cached instance so the next [ensureInitialized] rebuilds it.
+  ///
+  /// Only for tests: the instance is `??=`-guarded, so without this the
+  /// callbacks registered by the first test in a file are the ones every later
+  /// test keeps using.
+  @visibleForTesting
+  static void resetForTesting() => _instance = null;
 
   /// Ensures that this Dart isolate is listening for method calls that may come
   /// from the host platform.

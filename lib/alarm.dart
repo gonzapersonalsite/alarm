@@ -173,6 +173,20 @@ class Alarm {
     return success;
   }
 
+  /// Returns this class to the state a fresh isolate would see.
+  ///
+  /// Only for tests. [scheduled] and [ringing] are static subjects and
+  /// [checkAlarm] is single-flight, so without this one test's alarms and
+  /// in-flight reconciliation are still there for the next one. Reset
+  /// `AlarmStorage` and `AlarmTriggerApiImpl` alongside it.
+  @visibleForTesting
+  static void resetForTesting() {
+    _checkAlarmFuture = null;
+    _scheduled.add(AlarmSet.empty());
+    _ringing.add(AlarmSet.empty());
+    PlatformTimers.stopAll();
+  }
+
   /// Validates [alarmSettings] fields.
   static void alarmSettingsValidation(AlarmSettings alarmSettings) {
     if (alarmSettings.id == 0 || alarmSettings.id == -1) {
